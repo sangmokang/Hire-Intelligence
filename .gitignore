@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+.playwright-mcp/
+.omc/
+.DS_Store
+*.log

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2EC4B6"/>
+      <stop offset="100%" stop-color="#7BC67E"/>
+    </linearGradient>
+  </defs>
+  <!-- Outer hexagon outline -->
+  <polygon points="30,4 52,17 52,43 30,56 8,43 8,17" stroke="url(#grad)" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+  <!-- Inner triangles forming geometric pattern -->
+  <line x1="30" y1="4" x2="30" y2="30" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="52" y1="17" x2="30" y2="30" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="52" y1="43" x2="30" y2="30" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="30" y1="56" x2="30" y2="30" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="8" y1="43" x2="30" y2="30" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="8" y1="17" x2="30" y2="30" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+  <!-- Cross lines for overlapping triangle effect -->
+  <line x1="30" y1="4" x2="52" y2="43" stroke="url(#grad)" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <line x1="52" y1="17" x2="8" y2="43" stroke="url(#grad)" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <line x1="8" y1="17" x2="30" y2="56" stroke="url(#grad)" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- Center dot -->
+  <circle cx="30" cy="30" r="3" fill="url(#grad)"/>
+</svg>
