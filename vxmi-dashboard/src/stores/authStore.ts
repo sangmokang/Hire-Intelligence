@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { User, LoginCredentials, RegisterData } from '../types/auth';
-import { getDefaultTrack } from '../types/auth';
 import { apiClient } from '../services/apiClient';
 
 interface AuthState {

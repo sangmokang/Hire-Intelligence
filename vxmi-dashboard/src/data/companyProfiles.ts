@@ -2,6 +2,7 @@ import type { CompanyProfile } from '../types'
 
 export const COMPANY_DB: Record<string, CompanyProfile> = {
   '토스': {
+    companyId: 'toss',
     name: '토스',
     talentDensity: { overall: 88, techDiversity: 91, seniorRatio: 78, avgTenure: '2.1년', internalOtwPct: 22 },
     hiringPower: { overall: 85, activePostings: 152, weeklyTrend: [88,96,104,112,124,118,130,138,144,148,152,152] },
@@ -26,6 +27,7 @@ export const COMPANY_DB: Record<string, CompanyProfile> = {
     },
   },
   '카카오': {
+    companyId: 'kakao',
     name: '카카오',
     talentDensity: { overall: 78, techDiversity: 85, seniorRatio: 72, avgTenure: '2.8년', internalOtwPct: 18 },
     hiringPower: { overall: 72, activePostings: 196, weeklyTrend: [168,174,180,188,190,194,196,200,198,196,196,196] },
@@ -50,6 +52,7 @@ export const COMPANY_DB: Record<string, CompanyProfile> = {
     },
   },
   '네이버': {
+    companyId: 'naver',
     name: '네이버',
     talentDensity: { overall: 82, techDiversity: 88, seniorRatio: 80, avgTenure: '3.2년', internalOtwPct: 12 },
     hiringPower: { overall: 68, activePostings: 182, weeklyTrend: [190,188,186,188,184,182,180,178,182,182,182,182] },
@@ -74,6 +77,7 @@ export const COMPANY_DB: Record<string, CompanyProfile> = {
     },
   },
   '삼성전자': {
+    companyId: 'samsung',
     name: '삼성전자',
     talentDensity: { overall: 95, techDiversity: 96, seniorRatio: 90, avgTenure: '5.8년', internalOtwPct: 8 },
     hiringPower: { overall: 55, activePostings: 248, weeklyTrend: [240,244,248,248,246,244,248,250,248,248,248,248] },
@@ -98,6 +102,7 @@ export const COMPANY_DB: Record<string, CompanyProfile> = {
     },
   },
   '쿠팡': {
+    companyId: 'coupang',
     name: '쿠팡',
     talentDensity: { overall: 71, techDiversity: 74, seniorRatio: 65, avgTenure: '1.9년', internalOtwPct: 31 },
     hiringPower: { overall: 79, activePostings: 144, weeklyTrend: [108,116,120,128,132,136,138,140,142,144,144,144] },

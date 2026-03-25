@@ -21,7 +21,7 @@ class Company(Base):
     normalized_name: Mapped[str] = mapped_column(String(200), nullable=False)
     aliases: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     segment_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    organization_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'), nullable=True)
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey('public.organizations.id'), nullable=True)
     industry: Mapped[str | None] = mapped_column(String(100), nullable=True)
     size: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

@@ -46,7 +46,7 @@ function adaptTimelineData(timelines: CompanyTimeline[]): DisplayRankItem[] {
 }
 
 export function CompanyTimelineView() {
-  const { filters } = useDashboardStore()
+  const { filters: _filters } = useDashboardStore()
   const [mode, setMode] = useState<TimelineMode>('total')
   const [weeks, setWeeks] = useState<TimelineWeeks>(12)
   const [topN, setTopN] = useState<TimelineTopN>(20)

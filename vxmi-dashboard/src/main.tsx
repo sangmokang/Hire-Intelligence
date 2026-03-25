@@ -5,6 +5,9 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import './index.css'
 import App from './App.tsx'
 import { queryClient } from './lib/queryClient'
+import { initSentry } from './lib/sentry'
+
+initSentry();
 
 async function enableMocking() {
   if (import.meta.env.DEV) {

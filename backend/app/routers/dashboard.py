@@ -1,7 +1,9 @@
 import random
 
 from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.dependencies import get_current_user
 from app.schemas.common import ApiResponse
 from app.schemas.dashboard import (
@@ -20,15 +22,7 @@ from app.schemas.dashboard import (
     TalentDensity,
     HiringPower,
 )
-from app.seed.dashboard_data import (
-    get_sd_matrix_data,
-    get_company_rankings as seed_get_company_rankings,
-    get_timeline_data,
-    get_trend_data,
-    get_company_profile,
-    SEGMENTS,
-    COMPANIES,
-)
+from app.services.dashboard_service import DashboardService
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -49,9 +43,11 @@ def _compute_quadrant(sd_ratio: float) -> str:
 async def get_sd_matrix(
     week: str | None = Query(None, description="ISO 주차 (예: 2024-W01)"),
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """수급 매트릭스 - 전체 직군별 수요/공급 현황"""
-    raw = get_sd_matrix_data(week)
+    service = DashboardService(db)
+    raw = await service.get_sd_matrix(week)
 
     segments = []
     for s in raw["segments"]:
@@ -86,29 +82,30 @@ async def get_sd_matrix_drilldown(
     segment_id: str,
     week: str | None = Query(None),
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """직군 드릴다운 - 특정 직군의 상세 수급 데이터"""
-    segment = next((s for s in SEGMENTS if s["id"] == segment_id), None)
-    if not segment:
+    service = DashboardService(db)
+    matrix = await service.get_sd_matrix(week)
+
+    seg_data = next((s for s in matrix["segments"] if s["segment_id"] == segment_id), None)
+    if not seg_data:
         raise HTTPException(status_code=404, detail=f"직군 '{segment_id}'를 찾을 수 없습니다.")
 
-    matrix = get_sd_matrix_data(week)
-    seg_data = next((s for s in matrix["segments"] if s["segment_id"] == segment_id), None)
-
-    trend_data = get_trend_data(segment_id)
-    company_ranks = seed_get_company_rankings(segment_id, limit=10)
+    trend_raw = await service.get_trends(segment_id)
+    company_ranks = await service.get_company_rankings(segment_id, limit=10)
 
     drilldown = {
         "segment_id": segment_id,
-        "segment_name": segment["name"],
+        "segment_name": seg_data["segment_name"],
         "week": matrix["week"],
-        "demand": seg_data["demand"] if seg_data else 0,
-        "supply": seg_data["supply"] if seg_data else 0,
-        "sd_ratio": seg_data["sd_ratio"] if seg_data else 1.0,
-        "otw_pct": seg_data["otw_pct"] if seg_data else 0.0,
-        "avg_salary": seg_data["avg_salary"] if seg_data else None,
+        "demand": seg_data["demand"],
+        "supply": seg_data["supply"],
+        "sd_ratio": seg_data["sd_ratio"],
+        "otw_pct": seg_data["otw_pct"],
+        "avg_salary": seg_data.get("avg_salary"),
         "top_companies": company_ranks["companies"][:10],
-        "weekly_trend": trend_data["data_points"],
+        "weekly_trend": trend_raw["data_points"],
     }
     return ApiResponse(data=drilldown)
 
@@ -118,13 +115,14 @@ async def get_top_companies(
     segment_id: str | None = Query(None, description="직군 필터"),
     limit: int = Query(20, ge=1, le=50),
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """TOP 기업 채용 순위"""
-    raw = seed_get_company_rankings(segment_id, limit)
+    service = DashboardService(db)
+    raw = await service.get_company_rankings(segment_id, limit)
     items = []
     for c in raw["companies"]:
-        # segment: pick first segment_id or provided filter
-        seg = (segment_id or (c["segment_ids"][0] if c["segment_ids"] else ""))
+        seg = segment_id or (c["segment_ids"][0] if c["segment_ids"] else "")
         items.append(CompanyRankItem(
             company_id=c["company_id"],
             rank=c["rank"],
@@ -141,9 +139,11 @@ async def get_top_companies(
 async def get_company_detail(
     company_id: str,
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """기업 상세 정보"""
-    data = get_company_profile(company_id)
+    service = DashboardService(db)
+    data = await service.get_company_profile(company_id)
     if not data:
         raise HTTPException(status_code=404, detail=f"기업 '{company_id}'를 찾을 수 없습니다.")
     return ApiResponse(data=data)
@@ -153,11 +153,12 @@ async def get_company_detail(
 async def get_timeline(
     company_id: str | None = Query(None, description="기업 ID 필터"),
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """기업 채용 타임라인"""
-    raw = get_timeline_data(company_id)
+    service = DashboardService(db)
+    raw = await service.get_timeline(company_id)
 
-    # Group entries by company
     company_map: dict[str, dict] = {}
     for entry in raw["entries"]:
         cid = entry["company_id"]
@@ -185,33 +186,37 @@ async def get_timeline(
 async def get_trends(
     segment_id: str | None = Query(None, description="직군 필터"),
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """채용 트렌드 (12주 추이)"""
+    service = DashboardService(db)
+    raw = await service.get_trends(segment_id)
+
+    # Group data_points by segment
+    seg_map: dict[str, list[dict]] = {}
+    for dp in raw["data_points"]:
+        sid = dp["segment_id"]
+        seg_map.setdefault(sid, [])
+        seg_map[sid].append(dp)
+
     if segment_id:
-        # Single segment trend
-        raw = get_trend_data(segment_id)
-        seg = next((s for s in SEGMENTS if s["id"] == segment_id), None)
-        data_points = [
-            TrendDataPoint(week=dp["week"], count=dp["demand"])
-            for dp in raw["data_points"]
-        ]
+        # Return only the requested segment
+        from app.services.dashboard_service import _segment_name
+        pts = seg_map.get(segment_id, [])
+        data_points = [TrendDataPoint(week=dp["week"], count=dp["demand"]) for dp in pts]
         trends = [SegmentTrend(
             segment_id=segment_id,
-            segment_name=seg["name"] if seg else segment_id,
+            segment_name=_segment_name(segment_id),
             data=data_points,
         )]
     else:
-        # All segments
+        from app.services.dashboard_service import _segment_name
         trends = []
-        for seg in SEGMENTS:
-            raw = get_trend_data(seg["id"])
-            data_points = [
-                TrendDataPoint(week=dp["week"], count=dp["demand"])
-                for dp in raw["data_points"]
-            ]
+        for sid, pts in seg_map.items():
+            data_points = [TrendDataPoint(week=dp["week"], count=dp["demand"]) for dp in pts]
             trends.append(SegmentTrend(
-                segment_id=seg["id"],
-                segment_name=seg["name"],
+                segment_id=sid,
+                segment_name=_segment_name(sid),
                 data=data_points,
             ))
 
@@ -222,25 +227,28 @@ async def get_trends(
 async def resume_match(
     body: ResumeMatchRequest,
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """이력서 기반 기업 매칭 (MVP: 간단한 키워드 매칭)"""
+    """이력서 기반 기업 매칭 (MVP: 키워드 매칭)"""
     resume_text = body.resume_text
 
     skill_keywords = ["Python", "Java", "React", "Vue", "Node.js", "Kubernetes", "AWS", "GCP"]
     found_skills = [kw for kw in skill_keywords if kw.lower() in resume_text.lower()]
 
+    service = DashboardService(db)
+    company_data = await service.get_resume_match_data(found_skills, limit=body.max_results * 2)
+
     matches = []
-    for company in random.sample(COMPANIES, k=min(10, len(COMPANIES))):
-        seg = random.choice(SEGMENTS)
+    for c in company_data:
         score = round(random.uniform(0.5, 0.95), 2)
         matches.append(MatchResult(
-            company_id=company["id"],
-            company=company["name"],
+            company_id=c["company_id"],
+            company=c["company_name"],
             score=score,
-            segment=seg["id"],
-            match_reason=f"{company['industry']} 분야 적합",
+            segment=c["segment_id"],
+            match_reason=f"{c['industry']} 분야 적합" if c["industry"] else "채용 활성 기업",
             matched_skills=found_skills[:3],
-            active_postings=random.randint(1, 15),
+            active_postings=c["active_postings"],
         ))
 
     matches.sort(key=lambda x: x.score, reverse=True)
@@ -257,13 +265,14 @@ async def resume_match(
 async def get_company_analysis(
     company_id: str,
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """기업 채용 심층 분석"""
-    raw = get_company_profile(company_id)
+    service = DashboardService(db)
+    raw = await service.get_company_profile(company_id)
     if not raw:
         raise HTTPException(status_code=404, detail=f"기업 '{company_id}'를 찾을 수 없습니다.")
 
-    # Build TalentDensity from seed data
     talent_density = TalentDensity(
         overall=round(random.uniform(60, 95), 1),
         tech_diversity=round(random.uniform(55, 85), 1),
@@ -272,7 +281,6 @@ async def get_company_analysis(
         internal_otw_pct=raw["otw_pct"],
     )
 
-    # Build HiringPower from seed data
     recent_trend = [dp["demand"] for dp in raw["hiring_trend"][-4:]]
     hiring_power = HiringPower(
         overall=round(random.uniform(65, 98), 1),

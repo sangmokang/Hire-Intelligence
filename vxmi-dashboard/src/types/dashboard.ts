@@ -72,6 +72,51 @@ export interface ResumeMatchOutput {
   matchEngine: 'KEYWORD' | 'SEMANTIC';
 }
 
+// S/D 세그먼트 기본 타입
+export interface Segment {
+  id: string;
+  name: string;
+  demand: number;
+  supply: number;
+  otwPct: number;
+  color: string;
+}
+
+// 세그먼트 확장 타입 (WoW + 상위기업)
+export interface EnrichedSegment extends Segment {
+  demandWoW: number;
+  supplyWoW: number;
+  topCompanies: string[];
+}
+
+// 드릴다운 패널 아이템
+export interface DrilldownItem {
+  company: string;
+  position?: string;
+  count: number;
+  change?: number;
+}
+
+// 인재 유입/유출 흐름
+export interface TalentFlowEntry {
+  company: string;
+  count: number;
+}
+
+export interface TalentFlow {
+  inflow: TalentFlowEntry[];
+  outflow: TalentFlowEntry[];
+  totalInflow?: number;
+  totalOutflow?: number;
+  netChange?: number;
+}
+
+// 타임라인 필터 타입
+export type TimelineMode = 'total' | 'keyword' | 'compound';
+export type TimelineWeeks = 4 | 8 | 12 | 24;
+export type TimelineTopN = 10 | 20 | 30;
+export type KeywordOperator = 'AND' | 'OR';
+
 // 기업 분석 프로필
 export interface CompanyProfile {
   companyId: string;
@@ -88,4 +133,5 @@ export interface CompanyProfile {
     activePostings: number;
     weeklyTrend: number[];
   };
+  talentFlow?: TalentFlow;
 }

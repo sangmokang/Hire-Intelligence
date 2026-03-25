@@ -27,7 +27,7 @@ def test_login_invalid_credentials():
 def test_protected_endpoint_without_token():
     """인증 없이 보호된 엔드포인트 접근"""
     response = client.get("/api/v1/dashboard/sd-matrix")
-    assert response.status_code == 403  # HTTPBearer auto_error=False -> 401
+    assert response.status_code == 401  # HTTPBearer auto_error=False returns 401
 
 
 def test_openapi_docs():

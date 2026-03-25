@@ -184,7 +184,7 @@ export function SDDataTable({ segments, selectedSegmentId, onRowSelect, onRowHov
                   {/* Top 3 기업 */}
                   <td className="px-3 py-2 text-gray-600">
                     <div className="flex items-center gap-1 max-w-[200px]">
-                      {seg.topCompanies.map((co, ci) => (
+                      {seg.topCompanies.map((co: string, ci: number) => (
                         <span
                           key={ci}
                           className="inline-block px-1.5 py-0.5 bg-gray-100 rounded text-[10px] text-gray-600 truncate max-w-[64px]"

@@ -44,7 +44,7 @@ export function useAuthStateSync() {
 // Sign in mutation
 export function useSignIn() {
   const queryClient = useQueryClient();
-  const { login } = useAuthStore();
+  const { login: _login } = useAuthStore();
 
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>

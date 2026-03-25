@@ -80,13 +80,13 @@ function CurvedBand({
 }
 
 export function TalentFlowChart({ talentFlow, companyName }: Props) {
-  const { inflow, outflow, totalInflow, totalOutflow, netChange } = talentFlow
+  const { inflow, outflow, totalInflow = 0, totalOutflow = 0, netChange = 0 } = talentFlow
   const [hoveredLeft, setHoveredLeft] = useState<number | null>(null)
   const [hoveredRight, setHoveredRight] = useState<number | null>(null)
 
   const maxCount = Math.max(
-    ...inflow.map((i) => i.count),
-    ...outflow.map((o) => o.count)
+    ...inflow.map((i: { count: number }) => i.count),
+    ...outflow.map((o: { count: number }) => o.count)
   )
 
   const totalRows = Math.max(inflow.length, outflow.length)
@@ -135,7 +135,7 @@ export function TalentFlowChart({ talentFlow, companyName }: Props) {
     }
   }
 
-  const isPositive = netChange >= 0
+  const isPositive = (netChange ?? 0) >= 0
 
   return (
     <div className="w-full">

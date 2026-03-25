@@ -45,7 +45,7 @@ class SegmentSnapshot(Base):
     sd_ratio: Mapped[float] = mapped_column(Numeric(8, 4), nullable=False, default=1.0)
     avg_salary: Mapped[int | None] = mapped_column(Integer, nullable=True)
     top_companies: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    extra_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
