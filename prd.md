@@ -1664,6 +1664,7 @@ vxmi-dashboard/src/
 | `VXMI-Pricing-Plan.md` v3 | 참고 (본 PRD로 통합) | 요금제/페르소나 상세 |
 | `PRD-Admin-Panel.md` v1 | 참고 (본 PRD로 통합) | Admin 패널 상세 |
 | API 서버 상세 설계 | 별도 작성 예정 | FastAPI OpenAPI spec |
+| `design/valuehire-ui-screens.html` | 작성 완료 (2026-03-27) | UI 목업 5개 화면 (Landing, Onboarding, Dashboard, CLI, MCP) — 브라우저에서 열어 확인 |
 | 디자인 시스템 가이드 | 별도 작성 예정 | 컴포넌트 라이브러리 |
 | 개인정보처리방침 | 법무팀 협의 후 작성 | PIPA 준수 |
 
@@ -1673,6 +1674,7 @@ vxmi-dashboard/src/
 |---|---|---|---|
 | v1.0 | 2026-03-20 | Claude (Anthropic) | 초안 (3개 문서 기반) |
 | v2.0 | 2026-03-20 | Claude (Anthropic) | Architect/Critic 피드백 반영 통합본. 멀티 테넌시, FastAPI, 법적 리스크, 테스트 전략, 모니터링, PIPA, 팀 구성, Phase 1a/1b 분리 추가. 용어 통일 (Pricing v3 기준). |
+| v2.1 | 2026-03-27 | Claude (Anthropic) | UI 목업 HTML 추가 (`design/valuehire-ui-screens.html`). 5개 화면 디자인 시안: Landing(Bloomberg 터미널 컨셉), Onboarding(4단계), Dashboard(Free/Pro 분리), CLI(`npx valuehire`), MCP(Claude Desktop 연동). 디자인 토큰·타이포그래피·컬러 시스템 정의. |
 
 ---
 
