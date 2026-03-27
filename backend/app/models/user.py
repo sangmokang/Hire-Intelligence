@@ -43,6 +43,9 @@ class UserProfile(Base):
     job_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
     profile_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # 구독 플랜 (STARTER / PRO / ENTERPRISE)
+    plan: Mapped[str] = mapped_column(String(20), default="STARTER", server_default="STARTER", nullable=False)
+
     # 역할 및 카테고리
     role: Mapped[str] = mapped_column(
         SAEnum(UserRole, name="user_role"), default=UserRole.USER, nullable=False

@@ -1,9 +1,20 @@
+import os
 from pydantic_settings import BaseSettings
-from typing import Any
+
+
+def _resolve_env_file() -> str:
+    """APP_ENV 환경변수에 따라 로드할 .env 파일 결정."""
+    app_env = os.getenv("APP_ENV", "development")
+    env_file = f".env.{app_env}"
+    # 환경별 파일이 없으면 기본 .env로 폴백
+    if not os.path.exists(env_file):
+        env_file = ".env"
+    return env_file
 
 
 class Settings(BaseSettings):
     # App 기본 설정
+    APP_ENV: str = "development"
     APP_NAME: str = "VXMI Hire Intelligence API"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = True
@@ -17,14 +28,26 @@ class Settings(BaseSettings):
     # 데이터베이스 (Supabase PostgreSQL)
     DATABASE_URL: str = ""
 
-    # CORS 허용 도메인
-    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # CORS 허용 도메인 (와일드카드 금지 — 프로덕션 도메인 명시)
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://valuehire.cc",
+        "https://www.valuehire.cc",
+    ]
+
+    # Sentry 오류 추적
+    SENTRY_DSN: str | None = None
 
     # 인증 토큰 만료 시간
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
+    model_config = {
+        "env_file": _resolve_env_file(),
+        "case_sensitive": True,
+        "extra": "ignore",
+    }
 
 
 settings = Settings()

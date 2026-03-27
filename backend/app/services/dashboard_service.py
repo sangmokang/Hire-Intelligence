@@ -28,7 +28,7 @@ class DashboardService:
     def __init__(self, db: Session):
         self.db = db
 
-    async def get_sd_matrix(self, week: str | None = None) -> dict:
+    def get_sd_matrix(self, week: str | None = None) -> dict:
         """수급 매트릭스 데이터 — WeeklySnapshot + SegmentSnapshot"""
         # Resolve target week
         if week is None:
@@ -93,7 +93,7 @@ class DashboardService:
             "week": week,
         }
 
-    async def get_company_rankings(self, segment_id: str | None = None, limit: int = 20) -> dict:
+    def get_company_rankings(self, segment_id: str | None = None, limit: int = 20) -> dict:
         """기업 순위 — JobPosting + Company"""
         q = (
             self.db.query(
@@ -145,7 +145,7 @@ class DashboardService:
 
         return {"companies": companies}
 
-    async def get_timeline(self, company_id: str | None = None) -> dict:
+    def get_timeline(self, company_id: str | None = None) -> dict:
         """채용 타임라인 — JobPosting + Company (last 12 weeks)"""
         # Determine the last 12 weeks
         max_week_row = self.db.query(func.max(JobPosting.week)).scalar()
@@ -198,7 +198,7 @@ class DashboardService:
 
         return {"entries": entries}
 
-    async def get_trends(self, segment_id: str | None = None) -> dict:
+    def get_trends(self, segment_id: str | None = None) -> dict:
         """트렌드 데이터 — WeeklySnapshot (last 12 weeks)"""
         weeks_subq = (
             self.db.query(WeeklySnapshot.week)
@@ -224,7 +224,7 @@ class DashboardService:
 
         return {"data_points": data_points}
 
-    async def get_company_profile(self, company_id: str) -> dict | None:
+    def get_company_profile(self, company_id: str) -> dict | None:
         """기업 프로필 — Company + JobPosting + Position"""
         try:
             cid_uuid = uuid.UUID(company_id)
@@ -294,7 +294,7 @@ class DashboardService:
             "otw_pct": otw_pct,
         }
 
-    async def get_resume_match_data(self, keywords: list[str], limit: int = 10) -> list[dict]:
+    def get_resume_match_data(self, keywords: list[str], limit: int = 10) -> list[dict]:
         """이력서 매칭용 기업 + 키워드 데이터"""
         # Find companies that appear in KeywordIndex for matched keywords
         if keywords:

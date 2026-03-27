@@ -40,7 +40,15 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="유효하지 않거나 만료된 토큰입니다.",
             )
-        return {"id": response.user.id, "email": response.user.email, "user": response.user}
+        user_id = response.user.id
+        # user_profiles 테이블에서 role, plan 조회 (RBAC 및 플랜 접근 제어용)
+        profile = supabase.table("user_profiles").select("role, plan").eq("id", user_id).single().execute()
+        role = profile.data.get("role", "USER") if profile.data else "USER"
+        # plan 컬럼이 없거나 NULL인 경우 STARTER로 기본 설정
+        plan = (profile.data.get("plan") or "STARTER") if profile.data else "STARTER"
+        return {"id": user_id, "email": response.user.email, "role": role, "plan": plan, "user": response.user}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

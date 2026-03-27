@@ -1,7 +1,14 @@
+from datetime import datetime
 from pydantic import Field
 from typing import Any
 
 from app.schemas.common import CamelModel
+
+
+class DashboardMetadata(CamelModel):
+    """대시보드 메타데이터 (최신 데이터 기준 주차/시각)"""
+    latest_week: str | None = None
+    updated_at: datetime | None = None
 
 
 class SegmentData(CamelModel):
