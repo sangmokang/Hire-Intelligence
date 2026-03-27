@@ -1,10 +1,13 @@
 import random
 
 from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.middleware.plan_access import require_pro
+from app.models.pulse import WeeklySnapshot
 from app.schemas.common import ApiResponse
 from app.schemas.dashboard import (
     ResumeMatchRequest,
@@ -21,10 +24,34 @@ from app.schemas.dashboard import (
     CompanyProfile,
     TalentDensity,
     HiringPower,
+    DashboardMetadata,
 )
 from app.services.dashboard_service import DashboardService
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+
+@router.get("/metadata", response_model=ApiResponse[DashboardMetadata])
+async def get_dashboard_metadata(
+    db: Session = Depends(get_db),
+):
+    """대시보드 메타데이터 — 최신 데이터 기준 주차 및 갱신 시각 (인증 불필요)"""
+    row = (
+        db.query(
+            func.max(WeeklySnapshot.week).label("latest_week"),
+            func.max(WeeklySnapshot.created_at).label("updated_at"),
+        )
+        .first()
+    )
+    if row is None or row.latest_week is None:
+        return ApiResponse(data=DashboardMetadata())
+
+    return ApiResponse(
+        data=DashboardMetadata(
+            latest_week=row.latest_week,
+            updated_at=row.updated_at,
+        )
+    )
 
 
 def _compute_quadrant(sd_ratio: float) -> str:
@@ -47,7 +74,7 @@ async def get_sd_matrix(
 ):
     """수급 매트릭스 - 전체 직군별 수요/공급 현황"""
     service = DashboardService(db)
-    raw = await service.get_sd_matrix(week)
+    raw = service.get_sd_matrix(week)
 
     segments = []
     for s in raw["segments"]:
@@ -86,14 +113,14 @@ async def get_sd_matrix_drilldown(
 ):
     """직군 드릴다운 - 특정 직군의 상세 수급 데이터"""
     service = DashboardService(db)
-    matrix = await service.get_sd_matrix(week)
+    matrix = service.get_sd_matrix(week)
 
     seg_data = next((s for s in matrix["segments"] if s["segment_id"] == segment_id), None)
     if not seg_data:
         raise HTTPException(status_code=404, detail=f"직군 '{segment_id}'를 찾을 수 없습니다.")
 
-    trend_raw = await service.get_trends(segment_id)
-    company_ranks = await service.get_company_rankings(segment_id, limit=10)
+    trend_raw = service.get_trends(segment_id)
+    company_ranks = service.get_company_rankings(segment_id, limit=10)
 
     drilldown = {
         "segment_id": segment_id,
@@ -119,7 +146,7 @@ async def get_top_companies(
 ):
     """TOP 기업 채용 순위"""
     service = DashboardService(db)
-    raw = await service.get_company_rankings(segment_id, limit)
+    raw = service.get_company_rankings(segment_id, limit)
     items = []
     for c in raw["companies"]:
         seg = segment_id or (c["segment_ids"][0] if c["segment_ids"] else "")
@@ -143,7 +170,7 @@ async def get_company_detail(
 ):
     """기업 상세 정보"""
     service = DashboardService(db)
-    data = await service.get_company_profile(company_id)
+    data = service.get_company_profile(company_id)
     if not data:
         raise HTTPException(status_code=404, detail=f"기업 '{company_id}'를 찾을 수 없습니다.")
     return ApiResponse(data=data)
@@ -152,12 +179,12 @@ async def get_company_detail(
 @router.get("/timeline", response_model=ApiResponse[list[CompanyTimeline]])
 async def get_timeline(
     company_id: str | None = Query(None, description="기업 ID 필터"),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_pro),
     db: Session = Depends(get_db),
 ):
     """기업 채용 타임라인"""
     service = DashboardService(db)
-    raw = await service.get_timeline(company_id)
+    raw = service.get_timeline(company_id)
 
     company_map: dict[str, dict] = {}
     for entry in raw["entries"]:
@@ -185,12 +212,12 @@ async def get_timeline(
 @router.get("/trends", response_model=ApiResponse[list[SegmentTrend]])
 async def get_trends(
     segment_id: str | None = Query(None, description="직군 필터"),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_pro),
     db: Session = Depends(get_db),
 ):
     """채용 트렌드 (12주 추이)"""
     service = DashboardService(db)
-    raw = await service.get_trends(segment_id)
+    raw = service.get_trends(segment_id)
 
     # Group data_points by segment
     seg_map: dict[str, list[dict]] = {}
@@ -226,7 +253,7 @@ async def get_trends(
 @router.post("/resume-match", response_model=ApiResponse[ResumeMatchOutput])
 async def resume_match(
     body: ResumeMatchRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_pro),
     db: Session = Depends(get_db),
 ):
     """이력서 기반 기업 매칭 (MVP: 키워드 매칭)"""
@@ -236,7 +263,7 @@ async def resume_match(
     found_skills = [kw for kw in skill_keywords if kw.lower() in resume_text.lower()]
 
     service = DashboardService(db)
-    company_data = await service.get_resume_match_data(found_skills, limit=body.max_results * 2)
+    company_data = service.get_resume_match_data(found_skills, limit=body.max_results * 2)
 
     matches = []
     for c in company_data:
@@ -264,12 +291,12 @@ async def resume_match(
 @router.get("/company-analysis/{company_id}", response_model=ApiResponse[CompanyProfile])
 async def get_company_analysis(
     company_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_pro),
     db: Session = Depends(get_db),
 ):
     """기업 채용 심층 분석"""
     service = DashboardService(db)
-    raw = await service.get_company_profile(company_id)
+    raw = service.get_company_profile(company_id)
     if not raw:
         raise HTTPException(status_code=404, detail=f"기업 '{company_id}'를 찾을 수 없습니다.")
 
