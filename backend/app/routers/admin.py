@@ -1,15 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
-from app.dependencies import get_current_user
+from app.middleware.rbac import require_super_admin
 from app.schemas.common import ApiResponse
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-
-def require_super_admin(current_user: dict = Depends(get_current_user)) -> dict:
-    """슈퍼 어드민 권한 확인"""
-    # TODO: DB에서 실제 role 확인
-    return current_user
 
 
 @router.get("/users", response_model=ApiResponse[list])
