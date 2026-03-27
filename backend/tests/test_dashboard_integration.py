@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 # Mock authenticated user
-MOCK_USER = {"id": "test-user-id", "email": "test@example.com"}
+MOCK_USER = {"id": "test-user-id", "email": "test@example.com", "role": "USER", "plan": "PRO"}
 
 
 def _make_mock_db():
