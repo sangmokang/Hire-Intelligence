@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
 
 // Layouts
 import { AuthLayout } from './components/layout/AuthLayout';
@@ -8,6 +9,7 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { AuthGuard } from './components/guards/AuthGuard';
 import { GuestGuard } from './components/guards/GuestGuard';
 import { RoleGuard } from './components/guards/RoleGuard';
+import { PlanGuard } from './components/guards/PlanGuard';
 
 // Auth pages
 import LoginPage from './pages/auth/LoginPage';
@@ -22,7 +24,14 @@ import { HiringTrendsView } from './components/views/HiringTrendsView';
 import { ResumeMatchView } from './components/views/ResumeMatchView';
 import { CompanyAnalysisView } from './components/views/CompanyAnalysisView';
 
+// My pages
+import ProfilePage from './pages/my/ProfilePage';
+import BillingPage from './pages/my/BillingPage';
+import PlansPage from './pages/my/PlansPage';
+import SettingsPage from './pages/my/SettingsPage';
+
 // Placeholder components for future pages
+// eslint-disable-next-line react-refresh/only-export-components
 function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="flex items-center justify-center h-64">
@@ -63,22 +72,38 @@ export const router = createBrowserRouter([
       // Analysis views (existing 6 views)
       { path: '/dashboard/top-companies', element: <TopCompaniesView /> },
       { path: '/dashboard/sd-matrix', element: <SDMatrixView /> },
-      { path: '/dashboard/timeline', element: <CompanyTimelineView /> },
-      { path: '/dashboard/trends', element: <HiringTrendsView /> },
-      { path: '/dashboard/resume-match', element: <ResumeMatchView /> },
-      { path: '/dashboard/company-analysis', element: <CompanyAnalysisView /> },
+      { path: '/dashboard/timeline', element: (
+        <PlanGuard requiredPlan="PRO">
+          <CompanyTimelineView />
+        </PlanGuard>
+      ) },
+      { path: '/dashboard/trends', element: (
+        <PlanGuard requiredPlan="PRO">
+          <HiringTrendsView />
+        </PlanGuard>
+      ) },
+      { path: '/dashboard/resume-match', element: (
+        <PlanGuard requiredPlan="PRO">
+          <ResumeMatchView />
+        </PlanGuard>
+      ) },
+      { path: '/dashboard/company-analysis', element: (
+        <PlanGuard requiredPlan="PRO">
+          <CompanyAnalysisView />
+        </PlanGuard>
+      ) },
 
       // User panel (/my) - placeholder pages for Phase 5
-      { path: '/my/profile', element: <PlaceholderPage title="내 프로필" /> },
-      { path: '/my/billing', element: <PlaceholderPage title="결제 관리" /> },
-      { path: '/my/billing/plans', element: <PlaceholderPage title="요금제 비교" /> },
+      { path: '/my/profile', element: <ProfilePage /> },
+      { path: '/my/billing', element: <BillingPage /> },
+      { path: '/my/billing/plans', element: <PlansPage /> },
       { path: '/my/billing/history', element: <PlaceholderPage title="결제 이력" /> },
       { path: '/my/billing/payment-methods', element: <PlaceholderPage title="결제 수단 관리" /> },
       { path: '/my/analytics', element: <PlaceholderPage title="사용 분석" /> },
       { path: '/my/analytics/usage', element: <PlaceholderPage title="사용량 통계" /> },
       { path: '/my/analytics/history', element: <PlaceholderPage title="활동 타임라인" /> },
       { path: '/my/analytics/search', element: <PlaceholderPage title="검색 히스토리" /> },
-      { path: '/my/settings', element: <PlaceholderPage title="설정" /> },
+      { path: '/my/settings', element: <SettingsPage /> },
       { path: '/my/delete-account', element: <PlaceholderPage title="회원 탈퇴" /> },
 
       // Admin panel routes - each wrapped with RoleGuard
@@ -149,8 +174,8 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Root redirect
-  { path: '/', element: <Navigate to="/login" replace /> },
+  // Landing page (public)
+  { path: '/', element: <LandingPage /> },
 
   // 404
   {

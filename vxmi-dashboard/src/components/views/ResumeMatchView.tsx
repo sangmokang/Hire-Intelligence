@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { useResumeMatch } from '../../hooks/useDashboard'
-import { SAMPLE_RESUME } from '../../data/resume'
 import { ErrorBoundary } from '../common/ErrorBoundary'
+
+const SAMPLE_RESUME = `Java, Kotlin, Spring Boot, Spring Batch, MSA, Kafka, Redis, MySQL, AWS (EKS, RDS, S3)
+핀테크 도메인 5년 경력
+대용량 트랜잭션 처리 시스템 설계 및 운영
+결제/정산 시스템 개발 경험
+팀 리드 경험 (5인 팀)`
 import { EmptyState } from '../common/EmptyState'
 import type { MatchResult } from '../../types/dashboard'
 

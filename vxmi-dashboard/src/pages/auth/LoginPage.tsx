@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, type LoginFormData } from '../../lib/validations';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../stores/authStore';
+import { trackEvent } from '../../lib/analytics';
 import logo from '../../assets/logo.svg';
 
 export default function LoginPage() {
@@ -37,6 +38,8 @@ export default function LoginPage() {
           authProvider: 'EMAIL',
           createdAt: user.created_at,
         });
+        // 로그인 성공 이벤트 GA4 전송
+        trackEvent('Auth', 'login_success', 'email');
         navigate('/dashboard');
       }
     } catch (err: unknown) {

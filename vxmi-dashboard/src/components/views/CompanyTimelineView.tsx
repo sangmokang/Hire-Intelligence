@@ -46,7 +46,7 @@ function adaptTimelineData(timelines: CompanyTimeline[]): DisplayRankItem[] {
 }
 
 export function CompanyTimelineView() {
-  const { filters: _filters } = useDashboardStore()
+  useDashboardStore()
   const [mode, setMode] = useState<TimelineMode>('total')
   const [weeks, setWeeks] = useState<TimelineWeeks>(12)
   const [topN, setTopN] = useState<TimelineTopN>(20)
@@ -90,7 +90,7 @@ export function CompanyTimelineView() {
   }, [rankData, weeksCount, response])
 
   const chartData = useMemo(() => weekLabels.map((label, wi) => {
-    const point: Record<string, any> = { week: label }
+    const point: Record<string, number | string> = { week: label }
     top5.forEach((r) => { point[r.company] = r.weeklySeries[wi] ?? 0 })
     if (restData.length > 0) {
       point['기타'] = restData.reduce((sum, r) => sum + (r.weeklySeries[wi] ?? 0), 0)
@@ -342,8 +342,8 @@ export function CompanyTimelineView() {
               <XAxis dataKey="week" tick={{ fontSize: 10 }} />
               <YAxis tickFormatter={(v: number) => v.toLocaleString()} tick={{ fontSize: 10 }} width={45} />
               <Tooltip
-                formatter={(value: any, name: any) => [Number(value).toLocaleString(), name]}
-                labelFormatter={(l: any) => `${l}주차`}
+                formatter={(value: unknown) => [Number(value).toLocaleString()]}
+                labelFormatter={(l: unknown) => `${String(l)}주차`}
               />
               {top5.map((r, i) => (
                 <Line

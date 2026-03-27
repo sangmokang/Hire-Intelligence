@@ -1,7 +1,10 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { hasPermission } from '../../types/auth';
+import { apiClient } from '../../services/apiClient';
+import { trackEvent } from '../../lib/analytics';
 import logo from '../../assets/logo.svg';
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
@@ -168,19 +171,28 @@ const ROLE_COLOR: Record<string, string> = {
 
 // ── Nav item helpers ──────────────────────────────────────────────────────────
 
+function IconLockSmall() {
+  return (
+    <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+    </svg>
+  );
+}
+
 interface NavItem {
   label: string;
   to: string;
   icon: React.ReactNode;
+  proOnly?: boolean;
 }
 
 const ANALYSIS_NAV: NavItem[] = [
   { label: 'Top 20 채용 볼륨', to: '/dashboard/top-companies', icon: <IconChart /> },
   { label: '수요공급 매트릭스', to: '/dashboard/sd-matrix', icon: <IconGrid /> },
-  { label: '시계열 인텔리전스', to: '/dashboard/timeline', icon: <IconClock /> },
-  { label: '채용 트렌드', to: '/dashboard/trends', icon: <IconTrendUp /> },
-  { label: '이력서 매칭', to: '/dashboard/resume-match', icon: <IconDocument /> },
-  { label: '기업 분석', to: '/dashboard/company-analysis', icon: <IconBuilding /> },
+  { label: '시계열 인텔리전스', to: '/dashboard/timeline', icon: <IconClock />, proOnly: true },
+  { label: '채용 트렌드', to: '/dashboard/trends', icon: <IconTrendUp />, proOnly: true },
+  { label: '이력서 매칭', to: '/dashboard/resume-match', icon: <IconDocument />, proOnly: true },
+  { label: '기업 분석', to: '/dashboard/company-analysis', icon: <IconBuilding />, proOnly: true },
 ];
 
 const MY_NAV: NavItem[] = [
@@ -199,34 +211,58 @@ const ADMIN_NAV: NavItem[] = [
   { label: '데이터 조회', to: '/admin/data', icon: <IconDatabase /> },
 ];
 
-function NavSection({ title, items }: { title: string; items: NavItem[] }) {
+function NavSection({ title, items, isStarterUser }: { title: string; items: NavItem[]; isStarterUser?: boolean }) {
   return (
     <div className="mb-6">
       <p className="px-3 mb-1 text-[10px] font-semibold tracking-widest uppercase text-gray-500">
         {title}
       </p>
       <ul className="space-y-0.5">
-        {items.map((item) => (
-          <li key={item.to}>
-            <NavLink
-              to={item.to}
-              className={({ isActive }) =>
-                [
-                  'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors',
-                  isActive
-                    ? 'bg-white/10 text-white font-medium'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5',
-                ].join(' ')
-              }
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </NavLink>
-          </li>
-        ))}
+        {items.map((item) => {
+          const locked = isStarterUser && item.proOnly;
+          return (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                onClick={() => {
+                  // 사이드바 네비게이션 클릭 이벤트 GA4 전송
+                  trackEvent('Navigation', 'click_sidebar_nav', item.label);
+                }}
+                className={({ isActive }) =>
+                  [
+                    'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors',
+                    isActive
+                      ? 'bg-white/10 text-white font-medium'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5',
+                  ].join(' ')
+                }
+              >
+                {item.icon}
+                <span className="flex-1">{item.label}</span>
+                {locked && <IconLockSmall />}
+              </NavLink>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
+}
+
+// ── Dashboard metadata hook ───────────────────────────────────────────────────
+
+function useDashboardMetadata() {
+  return useQuery({
+    queryKey: ['dashboard', 'metadata'] as const,
+    queryFn: async () => {
+      const res = await apiClient.get<{ data: { latestWeek: string | null; updatedAt: string | null } }>(
+        '/api/v1/dashboard/metadata'
+      );
+      return res.data.data;
+    },
+    staleTime: 1000 * 60 * 60, // 1 hour
+    retry: false,
+  });
 }
 
 // ── Main layout ───────────────────────────────────────────────────────────────
@@ -235,9 +271,12 @@ export function DashboardLayout() {
   const { user, logout } = useAuthStore();
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore();
   const navigate = useNavigate();
+  const { data: metadata } = useDashboardMetadata();
 
   const isAdmin = user ? hasPermission(user.role, 'SUPER_ADMIN') : false;
   const isUser = user ? hasPermission(user.role, 'USER') : false;
+  // STARTER 플랜 사용자 여부 (Pro 이상이 아닌 경우)
+  const isStarterUser = !user?.plan || user.plan === 'STARTER' || user.plan === 'TALENT_FREE' || user.plan === 'TALENT_PLUS';
 
   async function handleLogout() {
     await logout();
@@ -270,7 +309,7 @@ export function DashboardLayout() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-4">
-          <NavSection title="분석" items={ANALYSIS_NAV} />
+          <NavSection title="분석" items={ANALYSIS_NAV} isStarterUser={isStarterUser} />
           {isUser && <NavSection title="내 계정" items={MY_NAV} />}
           {isAdmin && <NavSection title="관리자" items={ADMIN_NAV} />}
         </nav>
@@ -317,6 +356,14 @@ export function DashboardLayout() {
 
           {/* Title area — can be populated by child pages via a context/store later */}
           <div className="flex-1" />
+
+          {/* 데이터 갱신 기준 주차 표시 */}
+          {metadata?.latestWeek && (
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 text-xs text-gray-500 font-medium">
+              <span>📊</span>
+              <span>{metadata.latestWeek} 기준</span>
+            </span>
+          )}
 
           {/* User avatar + dropdown */}
           {user && (

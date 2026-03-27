@@ -6,8 +6,10 @@ import './index.css'
 import App from './App.tsx'
 import { queryClient } from './lib/queryClient'
 import { initSentry } from './lib/sentry'
+import { initGA4 } from './lib/analytics'
 
 initSentry();
+initGA4();
 
 async function enableMocking() {
   if (import.meta.env.DEV) {

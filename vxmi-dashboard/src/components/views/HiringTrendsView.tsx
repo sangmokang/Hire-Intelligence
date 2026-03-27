@@ -48,7 +48,7 @@ export function HiringTrendsView() {
   const toggleSeg = (id: string) => {
     setHiddenSegs((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
       return next
     })
   }
@@ -86,7 +86,7 @@ export function HiringTrendsView() {
   const visibleCount = trendSeries.filter((s) => !hiddenSegs.has(s.id)).length
 
   const chartData = useMemo(() => trendWeeks.map((week, wi) => {
-    const point: Record<string, any> = { week }
+    const point: Record<string, number | string> = { week }
     trendSeries.forEach((s) => { point[s.id] = s.data[wi] })
     return point
   }), [trendWeeks, trendSeries])
@@ -286,9 +286,9 @@ export function HiringTrendsView() {
             <XAxis dataKey="week" tick={{ fontSize: 11 }} />
             <YAxis tickFormatter={(v: number) => v.toLocaleString()} tick={{ fontSize: 11 }} />
             <Tooltip
-              formatter={(value: any, name: any) => [
+              formatter={(value: unknown, name: unknown) => [
                 Number(value).toLocaleString(),
-                trendSeries.find((s) => s.id === name)?.name ?? name,
+                trendSeries.find((s) => s.id === name)?.name ?? String(name),
               ]}
             />
             {trendSeries.map((s) => (

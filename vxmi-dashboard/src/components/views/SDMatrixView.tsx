@@ -103,6 +103,7 @@ export function SDMatrixView() {
     return Math.ceil(max / 2000) * 2000 + 2000
   }, [activeData])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleBubbleClick = (data: any) => {
     if (!data?.segment) return
     const seg = data.segment as EnrichedSDItem

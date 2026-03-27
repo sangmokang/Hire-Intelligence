@@ -36,9 +36,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message :
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '로그인에 실패했습니다.';
       set({
-        error: err.response?.data?.error?.message || '로그인에 실패했습니다.',
+        error: message,
         isLoading: false,
       });
       throw err;
@@ -55,9 +57,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message :
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '회원가입에 실패했습니다.';
       set({
-        error: err.response?.data?.error?.message || '회원가입에 실패했습니다.',
+        error: message,
         isLoading: false,
       });
       throw err;

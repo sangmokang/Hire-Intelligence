@@ -2,6 +2,7 @@ import { RouterProvider } from 'react-router-dom';
 import { useEffect } from 'react';
 import { router } from './router';
 import { useAuthStore } from './stores/authStore';
+import { trackPageView } from './lib/analytics';
 
 function App() {
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
@@ -10,6 +11,15 @@ function App() {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // 라우트 변경 시 GA4 페이지뷰 이벤트 전송
+  useEffect(() => {
+    const unsubscribe = router.subscribe((state) => {
+      const path = state.location.pathname + state.location.search;
+      trackPageView(path);
+    });
+    return unsubscribe;
+  }, []);
 
   if (isLoading) {
     return (

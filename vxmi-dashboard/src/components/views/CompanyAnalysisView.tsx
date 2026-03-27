@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useCompanyAnalysis } from '../../hooks/useDashboard'
-import { DEFAULT_COMPANY_BTNS } from '../../data/companyProfiles'
 import { SparkBars } from '../common/SparkBars'
+
+const DEFAULT_COMPANY_BTNS = ['토스', '카카오', '네이버', '삼성전자', '쿠팡']
 import { TalentFlowChart } from '../common/TalentFlowChart'
+import type { TalentFlow } from '../../types/dashboard'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { CardSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
@@ -102,7 +104,7 @@ export function CompanyAnalysisView() {
             </div>
 
             {/* Talent Flow section — only if talentFlow exists on profile */}
-            {'talentFlow' in profile && (profile as any).talentFlow && (
+            {'talentFlow' in profile && (profile as unknown as Record<string, unknown>).talentFlow && (
               <div className="mt-6">
                 <div className="mb-4">
                   <p className="text-sm font-medium text-gray-900">인재 흐름</p>
@@ -110,7 +112,7 @@ export function CompanyAnalysisView() {
                 </div>
                 <div className="p-4 bg-gray-100 rounded-xl border border-gray-200">
                   <TalentFlowChart
-                    talentFlow={(profile as any).talentFlow}
+                    talentFlow={(profile as unknown as Record<string, unknown>).talentFlow as TalentFlow}
                     companyName={profile.name}
                   />
                 </div>

@@ -76,12 +76,12 @@ export const authHandlers = [
       createdAt: new Date().toISOString(),
     };
 
-    currentUser = newUser as any;
+    currentUser = newUser as typeof mockUsers[0];
 
     return HttpResponse.json({
       status: 'success',
       data: {
-        accessToken: createMockJWT(newUser as any),
+        accessToken: createMockJWT(newUser as typeof mockUsers[0]),
         user: newUser,
       },
     }, { status: 201 });
