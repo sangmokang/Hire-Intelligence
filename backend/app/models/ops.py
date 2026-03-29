@@ -1,5 +1,5 @@
 from sqlalchemy import String, DateTime, Integer, Text, ForeignKey, UniqueConstraint, Index
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from datetime import datetime, timezone
 import uuid
@@ -47,3 +47,8 @@ class Position(Base):
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # JD 분석 결과 관계
+    jd_analyses: Mapped[list["JdAnalysis"]] = relationship("JdAnalysis", back_populates="position")

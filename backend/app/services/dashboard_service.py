@@ -3,25 +3,25 @@ import uuid
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 
-from app.models.pulse import WeeklySnapshot, SegmentSnapshot, JobPosting, TalentPool, KeywordIndex
+from app.models.pulse import WeeklySnapshot, SegmentSnapshot, JobPosting, TalentPool, KeywordIndex, JdAnalysis
 from app.models.ops import Company, Position
+from app.constants.segments import SEGMENTS, LEGACY_TO_CANONICAL
 
 
-# Segment name mapping (fallback when no name in DB)
-_SEGMENT_NAMES: dict[str, str] = {
-    "backend": "백엔드",
-    "frontend": "프론트엔드",
-    "ml_ai": "ML/AI",
-    "devops": "DevOps",
-    "mobile": "모바일",
-    "data": "데이터",
-    "security": "보안",
-    "fullstack": "풀스택",
-}
+# 세그먼트 이름 매핑 — 표준 ID 기반으로 생성, 레거시 ID도 하위 호환 지원
+_SEGMENT_NAMES: dict[str, str] = {s["id"]: s["name_ko"] for s in SEGMENTS}
+# 레거시 ID가 아직 DB에 저장된 경우를 위해 레거시 → 표준 이름 매핑 추가
+for _legacy_id, _canonical_id in LEGACY_TO_CANONICAL.items():
+    if _legacy_id not in _SEGMENT_NAMES:
+        _seg = next((s for s in SEGMENTS if s["id"] == _canonical_id), None)
+        if _seg:
+            _SEGMENT_NAMES[_legacy_id] = _seg["name_ko"]
 
 
 def _segment_name(segment_id: str) -> str:
-    return _SEGMENT_NAMES.get(segment_id, segment_id)
+    # 레거시 ID가 들어올 경우 표준 ID로 변환 후 이름 조회
+    canonical = LEGACY_TO_CANONICAL.get(segment_id, segment_id)
+    return _SEGMENT_NAMES.get(canonical, _SEGMENT_NAMES.get(segment_id, segment_id))
 
 
 class DashboardService:
@@ -284,6 +284,34 @@ class DashboardService:
             if tp:
                 otw_pct = float(tp.otw_pct)
 
+        # JD 분석 데이터 (있는 경우)
+        jd_analyses = (
+            self.db.query(JdAnalysis)
+            .filter(JdAnalysis.company_id == cid_uuid, JdAnalysis.parsed_at.isnot(None))
+            .all()
+        )
+
+        jd_analysis_data = None
+        if jd_analyses:
+            # tech_profile 집계
+            tech_freq: dict[str, int] = {}
+            role_dist: dict[str, int] = {}
+            for ja in jd_analyses:
+                if ja.tech_stacks:
+                    for t in ja.tech_stacks:
+                        tech_freq[t] = tech_freq.get(t, 0) + 1
+                if ja.role_level:
+                    role_dist[ja.role_level] = role_dist.get(ja.role_level, 0) + 1
+
+            jd_analysis_data = {
+                "tech_profile": sorted(
+                    [{"name": k, "count": v} for k, v in tech_freq.items()],
+                    key=lambda x: x["count"], reverse=True
+                )[:20],
+                "role_distribution": role_dist,
+                "jd_count": len(jd_analyses),
+            }
+
         return {
             "company_id": company_id,
             "company_name": company.name,
@@ -292,6 +320,7 @@ class DashboardService:
             "hiring_trend": hiring_trend,
             "recent_postings": recent_postings,
             "otw_pct": otw_pct,
+            "jd_analysis": jd_analysis_data,
         }
 
     def get_resume_match_data(self, keywords: list[str], limit: int = 10) -> list[dict]:

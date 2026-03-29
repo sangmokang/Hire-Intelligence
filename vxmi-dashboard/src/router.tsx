@@ -23,6 +23,7 @@ import { CompanyTimelineView } from './components/views/CompanyTimelineView';
 import { HiringTrendsView } from './components/views/HiringTrendsView';
 import { ResumeMatchView } from './components/views/ResumeMatchView';
 import { CompanyAnalysisView } from './components/views/CompanyAnalysisView';
+import { JdInsightsView } from './components/views/JdInsightsView';
 
 // My pages
 import ProfilePage from './pages/my/ProfilePage';
@@ -90,6 +91,11 @@ export const router = createBrowserRouter([
       { path: '/dashboard/company-analysis', element: (
         <PlanGuard requiredPlan="PRO">
           <CompanyAnalysisView />
+        </PlanGuard>
+      ) },
+      { path: '/dashboard/jd-insights', element: (
+        <PlanGuard requiredPlan="PRO">
+          <JdInsightsView />
         </PlanGuard>
       ) },
 

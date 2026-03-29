@@ -1,6 +1,6 @@
 from app.models.user import UserProfile
 from app.models.organization import Organization, OrganizationMember
-from app.models.pulse import WeeklySnapshot, SegmentSnapshot, JobPosting, TalentPool, KeywordIndex
+from app.models.pulse import WeeklySnapshot, SegmentSnapshot, JobPosting, TalentPool, KeywordIndex, JdAnalysis, CrawlRun
 from app.models.ops import Company, Position
 
 __all__ = [
@@ -14,4 +14,6 @@ __all__ = [
     "KeywordIndex",
     "Company",
     "Position",
+    "JdAnalysis",
+    "CrawlRun",
 ]

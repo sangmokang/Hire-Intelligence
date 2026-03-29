@@ -33,3 +33,28 @@ export const SEG_OPTIONS = ['전체', 'SW엔지니어링', 'Data/AI', '영업', 
 
 export const SUGGESTED_KEYWORDS = ['Python', 'Java', 'Kotlin', 'React', 'Spring Boot', 'AWS', 'MSA', 'MLOps', 'DevOps', 'Kubernetes', '영업 관리', 'B2B 영업', '결제', 'HR', 'PMO']
 
+/** 크롤러 표준 세그먼트 ID → FE 세그먼트 ID 매핑 */
+export const CANONICAL_TO_FE: Record<string, string> = {
+  dev_server:   'sw',
+  dev_frontend: 'sw',
+  dev_devops:   'sw',
+  dev_mlai:     'data',
+  dev_java:     'sw',
+  dev_cto:      'sw',
+  dev_total:    'sw',
+  design:       'ux',
+  pm_po:        'prod',
+  marketing:    'mktg',
+  hr:           'hr',
+  cfo_finance:  'fin',
+  sales:        'sales',
+  strategy:     'prod',
+}
+
+/** 크롤러에서 사용하는 전체 표준 세그먼트 ID 목록 */
+export const CRAWLER_SEGMENTS = [
+  'dev_server', 'dev_frontend', 'dev_devops', 'dev_mlai', 'dev_java',
+  'dev_cto', 'dev_total', 'design', 'pm_po', 'marketing', 'hr',
+  'cfo_finance', 'sales', 'strategy',
+] as const
+

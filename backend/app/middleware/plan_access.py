@@ -12,7 +12,7 @@ PLAN_LEVELS: dict[str, int] = {
 # 플랜별 접근 가능한 뷰 정의
 PLAN_VIEWS: dict[str, set[str] | None] = {
     "STARTER": {"sd-matrix", "top-companies"},
-    "PRO": {"sd-matrix", "top-companies", "timeline", "trends", "resume-match", "company-analysis"},
+    "PRO": {"sd-matrix", "top-companies", "timeline", "trends", "resume-match", "company-analysis", "jd-insights"},
     "ENTERPRISE": None,  # None = 모든 뷰 접근 가능
 }
 

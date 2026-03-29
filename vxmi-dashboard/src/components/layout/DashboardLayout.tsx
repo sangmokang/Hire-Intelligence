@@ -193,6 +193,7 @@ const ANALYSIS_NAV: NavItem[] = [
   { label: '채용 트렌드', to: '/dashboard/trends', icon: <IconTrendUp />, proOnly: true },
   { label: '이력서 매칭', to: '/dashboard/resume-match', icon: <IconDocument />, proOnly: true },
   { label: '기업 분석', to: '/dashboard/company-analysis', icon: <IconBuilding />, proOnly: true },
+  { label: 'JD 인사이트', to: '/dashboard/jd-insights', icon: <IconDocument />, proOnly: true },
 ];
 
 const MY_NAV: NavItem[] = [

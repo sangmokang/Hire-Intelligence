@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
+    # Anthropic API (JD 파싱용)
+    ANTHROPIC_API_KEY: str = ""
+    JD_PARSER_MODEL: str = "claude-haiku-4-5-20251001"
+    JD_PARSER_BATCH_SIZE: int = 10
+
+    # 크롤러 설정
+    CRAWL_DELAY_SECONDS: int = 2
+
     model_config = {
         "env_file": _resolve_env_file(),
         "case_sensitive": True,

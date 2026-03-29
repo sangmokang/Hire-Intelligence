@@ -14,8 +14,10 @@ if settings.SENTRY_DSN:
     )
 from app.routers import auth, dashboard, me, admin
 from app.routers.subscription import router as subscription_router
+from app.routers.crawl import router as crawl_router
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.schemas.common import ApiError
+from app.scheduler import lifespan
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -23,6 +25,7 @@ app = FastAPI(
     description="VXMI 채용 인텔리전스 플랫폼 API",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,  # 스케줄러 라이프사이클 연동
 )
 
 # CORS 미들웨어
@@ -98,6 +101,7 @@ app.include_router(dashboard.router, prefix=API_PREFIX)
 app.include_router(me.router, prefix=API_PREFIX)
 app.include_router(admin.router, prefix=API_PREFIX)
 app.include_router(subscription_router, prefix=API_PREFIX)
+app.include_router(crawl_router, prefix=API_PREFIX)
 
 
 @app.get("/health", tags=["health"])

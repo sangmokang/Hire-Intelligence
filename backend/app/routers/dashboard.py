@@ -27,6 +27,8 @@ from app.schemas.dashboard import (
     DashboardMetadata,
 )
 from app.services.dashboard_service import DashboardService
+from app.services.jd_insights_service import JdInsightsService
+from app.schemas.jd_analysis import JdInsightsResponse
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -286,6 +288,19 @@ async def resume_match(
         processing_time_ms=0,
         match_engine="KEYWORD",
     ))
+
+
+@router.get("/jd-insights", response_model=ApiResponse[JdInsightsResponse])
+async def get_jd_insights(
+    segment_id: str | None = None,
+    weeks: int = 12,
+    current_user: dict = Depends(require_pro),
+    db: Session = Depends(get_db),
+):
+    """JD 인사이트 — 기술 트렌드, 경력 분포, 연봉 벤치마크 (PRO+)"""
+    service = JdInsightsService(db)
+    data = service.get_insights(segment_id=segment_id, weeks=min(weeks, 52))
+    return ApiResponse(data=JdInsightsResponse(**data))
 
 
 @router.get("/company-analysis/{company_id}", response_model=ApiResponse[CompanyProfile])
