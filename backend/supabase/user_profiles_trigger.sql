@@ -11,7 +11,6 @@ AS $$
 BEGIN
     INSERT INTO public.user_profiles (
         id,
-        email,
         role,
         category,
         created_at,
@@ -19,7 +18,6 @@ BEGIN
     )
     VALUES (
         NEW.id,
-        NEW.email,
         'USER',   -- 기본 역할
         NULL,     -- 카테고리 미분류
         NOW(),
