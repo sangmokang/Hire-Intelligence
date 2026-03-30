@@ -3,14 +3,13 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, ZAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { useSDMatrix } from '../../hooks/useDashboard'
+import { useSDMatrix, useSDMatrixDrilldown } from '../../hooks/useDashboard'
 import { MetricCard } from '../common/MetricCard'
 import { DrilldownPanel } from '../common/DrilldownPanel'
 import { SDDataTable } from '../common/SDDataTable'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { ChartSkeleton, CardSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
-import type { DrilldownItem } from '../../types'
 import type { SDMatrixItem } from '../../types/dashboard'
 
 type ViewMode = 'segment' | 'industry'
@@ -57,7 +56,8 @@ export function SDMatrixView() {
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null)
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null)
   const [drillSegment, setDrillSegment] = useState<string | null>(null)
-  const [drillItems, setDrillItems] = useState<DrilldownItem[]>([])
+
+  const { data: drilldownResponse, isLoading: drilldownLoading } = useSDMatrixDrilldown(selectedSegmentId)
 
   const activeSegmentId = hoveredSegmentId ?? selectedSegmentId
 
@@ -109,17 +109,11 @@ export function SDMatrixView() {
     const seg = data.segment as EnrichedSDItem
     setSelectedSegmentId(seg.segmentId)
     setDrillSegment(seg.segmentName)
-    setDrillItems([
-      { company: '— ', position: '드릴다운 데이터 (백엔드 연동 예정)', count: 0 },
-    ])
   }
 
   const handleRowSelect = (segmentId: string, segmentName: string) => {
     setSelectedSegmentId(segmentId)
     setDrillSegment(segmentName)
-    setDrillItems([
-      { company: '— ', position: '드릴다운 데이터 (백엔드 연동 예정)', count: 0 },
-    ])
   }
 
   const handleRowHover = (segmentId: string | null) => {
@@ -131,7 +125,6 @@ export function SDMatrixView() {
     setSelectedSegmentId(null)
     setHoveredSegmentId(null)
     setDrillSegment(null)
-    setDrillItems([])
   }
 
   if (isLoading) {
@@ -310,11 +303,12 @@ export function SDMatrixView() {
         />
 
         <DrilldownPanel
+          segmentId={selectedSegmentId}
           segmentName={drillSegment}
-          items={drillItems}
+          drilldown={drilldownResponse?.data}
+          isLoading={drilldownLoading}
           onClose={() => {
             setDrillSegment(null)
-            setDrillItems([])
             setSelectedSegmentId(null)
           }}
         />

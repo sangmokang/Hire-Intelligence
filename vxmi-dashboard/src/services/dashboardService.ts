@@ -2,6 +2,7 @@ import { apiClient } from './apiClient';
 import type { ApiResponse } from '../types/api';
 import type {
   SDMatrixItem,
+  SDMatrixDrilldown,
   CompanyRankItem,
   CompanyTimeline,
   SegmentTrend,
@@ -59,6 +60,14 @@ export const dashboardService = {
   // Company Analysis
   async getCompanyAnalysis(companyId: string): Promise<ApiResponse<CompanyProfile>> {
     const { data } = await apiClient.get(`/api/v1/dashboard/company-analysis/${companyId}`);
+    return data;
+  },
+
+  // SD Matrix Drilldown
+  async getSDMatrixDrilldown(segmentId: string, week?: string): Promise<ApiResponse<SDMatrixDrilldown>> {
+    const params: Record<string, string> = {};
+    if (week) params.week = week;
+    const { data } = await apiClient.get(`/api/v1/dashboard/sd-matrix/${segmentId}/drilldown`, { params });
     return data;
   },
 };

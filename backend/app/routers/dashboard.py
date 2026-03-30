@@ -1,5 +1,3 @@
-import random
-
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -29,12 +27,13 @@ from app.schemas.dashboard import (
 from app.services.dashboard_service import DashboardService
 from app.services.jd_insights_service import JdInsightsService
 from app.schemas.jd_analysis import JdInsightsResponse
+from app.schemas.company_dna import CompanyDnaResponse, SegmentBenchmarkResponse
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 @router.get("/metadata", response_model=ApiResponse[DashboardMetadata])
-async def get_dashboard_metadata(
+def get_dashboard_metadata(
     db: Session = Depends(get_db),
 ):
     """대시보드 메타데이터 — 최신 데이터 기준 주차 및 갱신 시각 (인증 불필요)"""
@@ -69,7 +68,7 @@ def _compute_quadrant(sd_ratio: float) -> str:
 
 
 @router.get("/sd-matrix", response_model=ApiResponse[SDMatrixResponse])
-async def get_sd_matrix(
+def get_sd_matrix(
     week: str | None = Query(None, description="ISO 주차 (예: 2024-W01)"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -107,7 +106,7 @@ async def get_sd_matrix(
 
 
 @router.get("/sd-matrix/{segment_id}/drilldown", response_model=ApiResponse[dict])
-async def get_sd_matrix_drilldown(
+def get_sd_matrix_drilldown(
     segment_id: str,
     week: str | None = Query(None),
     current_user: dict = Depends(get_current_user),
@@ -140,7 +139,7 @@ async def get_sd_matrix_drilldown(
 
 
 @router.get("/companies", response_model=ApiResponse[list[CompanyRankItem]])
-async def get_top_companies(
+def get_top_companies(
     segment_id: str | None = Query(None, description="직군 필터"),
     limit: int = Query(20, ge=1, le=50),
     current_user: dict = Depends(get_current_user),
@@ -149,6 +148,15 @@ async def get_top_companies(
     """TOP 기업 채용 순위"""
     service = DashboardService(db)
     raw = service.get_company_rankings(segment_id, limit)
+
+    # 현재 주차(DB 최신 기준) 조회 후 WoW 변화량 계산
+    company_ids = [c["company_id"] for c in raw["companies"]]
+    wow_changes: dict[str, int] = {}
+    if company_ids:
+        latest_week_row = db.query(func.max(WeeklySnapshot.week)).scalar()
+        if latest_week_row:
+            wow_changes = service.get_company_wow_changes(company_ids, latest_week_row)
+
     items = []
     for c in raw["companies"]:
         seg = segment_id or (c["segment_ids"][0] if c["segment_ids"] else "")
@@ -159,13 +167,13 @@ async def get_top_companies(
             segment=seg,
             weekly_count=c["posting_count"],
             positions=[],
-            week_over_week_change=0,
+            week_over_week_change=wow_changes.get(c["company_id"], 0),
         ))
     return ApiResponse(data=items)
 
 
 @router.get("/companies/{company_id}", response_model=ApiResponse[dict])
-async def get_company_detail(
+def get_company_detail(
     company_id: str,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -179,7 +187,7 @@ async def get_company_detail(
 
 
 @router.get("/timeline", response_model=ApiResponse[list[CompanyTimeline]])
-async def get_timeline(
+def get_timeline(
     company_id: str | None = Query(None, description="기업 ID 필터"),
     current_user: dict = Depends(require_pro),
     db: Session = Depends(get_db),
@@ -212,7 +220,7 @@ async def get_timeline(
 
 
 @router.get("/trends", response_model=ApiResponse[list[SegmentTrend]])
-async def get_trends(
+def get_trends(
     segment_id: str | None = Query(None, description="직군 필터"),
     current_user: dict = Depends(require_pro),
     db: Session = Depends(get_db),
@@ -253,7 +261,7 @@ async def get_trends(
 
 
 @router.post("/resume-match", response_model=ApiResponse[ResumeMatchOutput])
-async def resume_match(
+def resume_match(
     body: ResumeMatchRequest,
     current_user: dict = Depends(require_pro),
     db: Session = Depends(get_db),
@@ -269,7 +277,11 @@ async def resume_match(
 
     matches = []
     for c in company_data:
-        score = round(random.uniform(0.5, 0.95), 2)
+        # 키워드 매칭 기반 점수 계산 (random 대체)
+        matched_count = len(found_skills)
+        total_keywords = len(skill_keywords)
+        base_score = matched_count / total_keywords if total_keywords > 0 else 0.5
+        score = round(min(0.95, max(0.1, base_score + 0.3)), 2)
         matches.append(MatchResult(
             company_id=c["company_id"],
             company=c["company_name"],
@@ -291,7 +303,7 @@ async def resume_match(
 
 
 @router.get("/jd-insights", response_model=ApiResponse[JdInsightsResponse])
-async def get_jd_insights(
+def get_jd_insights(
     segment_id: str | None = None,
     weeks: int = 12,
     current_user: dict = Depends(require_pro),
@@ -304,7 +316,7 @@ async def get_jd_insights(
 
 
 @router.get("/company-analysis/{company_id}", response_model=ApiResponse[CompanyProfile])
-async def get_company_analysis(
+def get_company_analysis(
     company_id: str,
     current_user: dict = Depends(require_pro),
     db: Session = Depends(get_db),
@@ -315,20 +327,42 @@ async def get_company_analysis(
     if not raw:
         raise HTTPException(status_code=404, detail=f"기업 '{company_id}'를 찾을 수 없습니다.")
 
-    talent_density = TalentDensity(
-        overall=round(random.uniform(60, 95), 1),
-        tech_diversity=round(random.uniform(55, 85), 1),
-        senior_ratio=round(random.uniform(25, 50), 1),
-        avg_tenure=f"{random.randint(2, 5)}y{random.randint(0, 11)}m",
-        internal_otw_pct=raw["otw_pct"],
-    )
+    # DNA 스냅샷에서 실데이터 조회 (있는 경우)
+    from app.services.company_dna_service import CompanyDnaService
+    dna_service = CompanyDnaService(db)
+    dna = dna_service.get_company_dna(company_id)
 
-    recent_trend = [dp["demand"] for dp in raw["hiring_trend"][-4:]]
-    hiring_power = HiringPower(
-        overall=round(random.uniform(65, 98), 1),
-        active_postings=sum(p["count"] for p in raw["recent_postings"]),
-        weekly_trend=recent_trend,
-    )
+    if dna:
+        senior_count = dna["hiring"]["role_level_dist"].get("senior", 0)
+        total_postings = max(dna["hiring"]["total_postings"], 1)
+        talent_density = TalentDensity(
+            overall=dna["tech"]["diversity_score"],
+            tech_diversity=dna["tech"]["diversity_index"],
+            senior_ratio=round(senior_count / total_postings * 100, 1),
+            avg_tenure="N/A",  # DNA에서 추론 불가
+            internal_otw_pct=raw["otw_pct"],
+        )
+        recent_trend = [dp["demand"] for dp in raw["hiring_trend"][-4:]]
+        hiring_power = HiringPower(
+            overall=dna["hiring"]["intensity_score"],
+            active_postings=sum(p["count"] for p in raw["recent_postings"]),
+            weekly_trend=recent_trend,
+        )
+    else:
+        # DNA 스냅샷 없는 경우 — 기본값
+        talent_density = TalentDensity(
+            overall=0.0,
+            tech_diversity=0.0,
+            senior_ratio=0.0,
+            avg_tenure="N/A",
+            internal_otw_pct=raw["otw_pct"],
+        )
+        recent_trend = [dp["demand"] for dp in raw["hiring_trend"][-4:]]
+        hiring_power = HiringPower(
+            overall=0.0,
+            active_postings=sum(p["count"] for p in raw["recent_postings"]),
+            weekly_trend=recent_trend,
+        )
 
     profile = CompanyProfile(
         company_id=company_id,
@@ -338,3 +372,33 @@ async def get_company_analysis(
     )
 
     return ApiResponse(data=profile)
+
+
+@router.get("/company-dna/{company_id}", response_model=ApiResponse[CompanyDnaResponse])
+def get_company_dna(
+    company_id: str,
+    current_user: dict = Depends(require_pro),
+    db: Session = Depends(get_db),
+):
+    """회사 DNA 프로필 — Tech/Hiring/Compensation/Culture 4축 분석 (PRO+)"""
+    from app.services.company_dna_service import CompanyDnaService
+    service = CompanyDnaService(db)
+    data = service.get_company_dna(company_id)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"기업 '{company_id}'의 DNA 데이터를 찾을 수 없습니다.")
+    return ApiResponse(data=CompanyDnaResponse(**data))
+
+
+@router.get("/segment-benchmark/{segment_id}", response_model=ApiResponse[SegmentBenchmarkResponse])
+def get_segment_benchmark(
+    segment_id: str,
+    current_user: dict = Depends(require_pro),
+    db: Session = Depends(get_db),
+):
+    """세그먼트 평균 DNA — 기업 DNA 비교 기준선 (PRO+)"""
+    from app.services.company_dna_service import CompanyDnaService
+    service = CompanyDnaService(db)
+    data = service.get_segment_benchmarks(segment_id)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"세그먼트 '{segment_id}'의 벤치마크 데이터를 찾을 수 없습니다.")
+    return ApiResponse(data=SegmentBenchmarkResponse(**data))

@@ -66,7 +66,7 @@ async def _background_crawl_and_parse(crawl_run_id: str, platform: str, segment_
     response_model=ApiResponse[CrawlTriggerResponse],
     dependencies=[Depends(require_super_admin)],
 )
-async def trigger_crawl(
+def trigger_crawl(
     request: CrawlTriggerRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -115,7 +115,7 @@ async def trigger_crawl(
     response_model=ApiResponse[CrawlStatusResponse],
     dependencies=[Depends(require_super_admin)],
 )
-async def get_crawl_status(
+def get_crawl_status(
     crawl_run_id: str,
     db: Session = Depends(get_db),
 ):

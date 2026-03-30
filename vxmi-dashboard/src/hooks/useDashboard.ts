@@ -7,6 +7,8 @@ export const dashboardKeys = {
   all: ['dashboard'] as const,
   sdMatrix: (week?: string, viewMode?: string) =>
     ['dashboard', 'sd-matrix', week, viewMode] as const,
+  sdMatrixDrilldown: (segmentId: string, week?: string) =>
+    ['dashboard', 'sd-matrix-drilldown', segmentId, week] as const,
   topCompanies: (week?: string, limit?: number) =>
     ['dashboard', 'top-companies', week, limit] as const,
   companyTimeline: (params: TimelineParams) =>
@@ -58,6 +60,16 @@ export function useHiringTrends(weeks: number, segments: string[]) {
 export function useResumeMatch() {
   return useMutation({
     mutationFn: (input: ResumeMatchInput) => dashboardService.postResumeMatch(input),
+  });
+}
+
+// SD Matrix Drilldown query
+export function useSDMatrixDrilldown(segmentId: string | null, week?: string) {
+  return useQuery({
+    queryKey: dashboardKeys.sdMatrixDrilldown(segmentId ?? '', week),
+    queryFn: () => dashboardService.getSDMatrixDrilldown(segmentId!, week),
+    staleTime: 1000 * 60 * 60, // 1 hour
+    enabled: Boolean(segmentId),
   });
 }
 

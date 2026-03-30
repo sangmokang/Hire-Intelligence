@@ -158,3 +158,56 @@ class CrawlRun(Base):
     total_errors: Mapped[int] = mapped_column(Integer, default=0)
     error_log: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class CompanyDnaSnapshot(Base):
+    """회사 DNA 주간 스냅샷 — 사전 계산된 DNA 점수 캐시"""
+    __tablename__ = "company_dna_snapshots"
+    __table_args__ = (
+        UniqueConstraint("company_id", "week", name="uq_dna_company_week"),
+        Index("ix_dna_snapshots_company", "company_id"),
+        Index("ix_dna_snapshots_segment_week", "segment_id", "week"),
+        {"schema": "pulse"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ops.companies.id"), nullable=False)
+    segment_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    week: Mapped[str] = mapped_column(String(10), nullable=False)
+
+    # Tech DNA
+    tech_stack_count: Mapped[int] = mapped_column(Integer, default=0)
+    tech_diversity_index: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    top_techs: Mapped[list] = mapped_column(JSONB, default=list)
+    tech_diversity_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+
+    # Hiring DNA
+    total_postings: Mapped[int] = mapped_column(Integer, default=0)
+    growth_velocity: Mapped[float | None] = mapped_column(Numeric(8, 4), nullable=True)
+    role_level_dist: Mapped[dict] = mapped_column(JSONB, default=dict)
+    segment_breadth: Mapped[int] = mapped_column(Integer, default=0)
+    hiring_intensity_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+
+    # Compensation DNA
+    salary_avg: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salary_position_pct: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    has_equity_ratio: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    benefits_count: Mapped[int] = mapped_column(Integer, default=0)
+    top_benefits: Mapped[list] = mapped_column(JSONB, default=list)
+
+    # Culture Signals
+    team_size_signals: Mapped[list] = mapped_column(JSONB, default=list)
+    growth_stage: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    new_position_ratio: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    culture_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+
+    # Overall
+    overall_dna_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    company = relationship("Company", backref="dna_snapshots")

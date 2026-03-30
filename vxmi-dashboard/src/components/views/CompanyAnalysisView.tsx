@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useCompanyAnalysis } from '../../hooks/useDashboard'
 import { SparkBars } from '../common/SparkBars'
 
@@ -12,6 +13,7 @@ import { EmptyState } from '../common/EmptyState'
 export function CompanyAnalysisView() {
   const [selectedCompany, setSelectedCompany] = useState('토스')
   const [inputVal, setInputVal] = useState('')
+  const navigate = useNavigate()
 
   const { data: response, isLoading, error } = useCompanyAnalysis(selectedCompany)
 
@@ -76,6 +78,14 @@ export function CompanyAnalysisView() {
 
         {!isLoading && !error && profile && (
           <>
+            <div className="flex items-center justify-end mb-3">
+              <button
+                onClick={() => navigate(`/dashboard/company-dna?company=${encodeURIComponent(profile.companyId)}`)}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-gray-700"
+              >
+                DNA 프로필 보기 →
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               {/* Panel A: Talent Density */}
               <div className="p-4 bg-gray-100 rounded-xl border border-gray-200">

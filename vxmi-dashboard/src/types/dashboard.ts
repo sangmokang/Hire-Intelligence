@@ -117,6 +117,32 @@ export type TimelineWeeks = 4 | 8 | 12 | 24;
 export type TimelineTopN = 10 | 20 | 30;
 export type KeywordOperator = 'AND' | 'OR';
 
+// S/D 매트릭스 드릴다운 응답
+export interface SDMatrixDrilldownCompany {
+  company: string;
+  count: number;
+  rank?: number;
+}
+
+export interface SDMatrixDrilldownTrendPoint {
+  week: ISOWeek;
+  demand: number;
+  supply: number;
+}
+
+export interface SDMatrixDrilldown {
+  segmentId: string;
+  segmentName: string;
+  week: string;
+  demand: number;
+  supply: number;
+  sdRatio: number;
+  otwPct: number;
+  avgSalary: number | null;
+  topCompanies: SDMatrixDrilldownCompany[];
+  weeklyTrend: SDMatrixDrilldownTrendPoint[];
+}
+
 // 기업 분석 프로필
 export interface CompanyProfile {
   companyId: string;

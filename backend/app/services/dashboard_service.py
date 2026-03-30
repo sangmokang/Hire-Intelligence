@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -386,3 +387,51 @@ class DashboardService:
             }
             for c in companies
         ]
+
+    def get_company_wow_changes(self, company_ids: list, current_week: str) -> dict[str, int]:
+        """기업별 주간 채용 건수 변화량 계산 (이번 주 - 지난 주)"""
+        # ISO 주차 문자열(예: "2026-W13") → 이전 주차 문자열 계산
+        try:
+            year_str, week_str = current_week.split("-W")
+            year, week_num = int(year_str), int(week_str)
+        except (ValueError, AttributeError):
+            return {}
+
+        # 이전 주 계산: W01이면 전년도 마지막 주로 이동
+        if week_num == 1:
+            prev_year = year - 1
+            # 전년도 마지막 주 번호 계산 (ISO 기준 52 또는 53주)
+            dec_28 = date(prev_year, 12, 28)  # 12월 28일은 항상 해당 연도의 마지막 주에 속함
+            prev_week_num = dec_28.isocalendar()[1]
+            prev_week = f"{prev_year}-W{prev_week_num:02d}"
+        else:
+            prev_week = f"{year}-W{(week_num - 1):02d}"
+
+        # 현재 주와 이전 주의 기업별 채용 건수 조회
+        weeks = [current_week, prev_week]
+        rows = (
+            self.db.query(
+                JobPosting.company_id,
+                JobPosting.week,
+                func.sum(JobPosting.count).label("total_count"),
+            )
+            .filter(
+                JobPosting.company_id.in_(company_ids),
+                JobPosting.week.in_(weeks),
+            )
+            .group_by(JobPosting.company_id, JobPosting.week)
+            .all()
+        )
+
+        # 기업별 주차별 카운트 집계
+        counts: dict[str, dict[str, int]] = {}
+        for r in rows:
+            cid = str(r.company_id)
+            counts.setdefault(cid, {})
+            counts[cid][r.week] = int(r.total_count)
+
+        # 변화량 = 이번 주 - 지난 주 (데이터 없으면 0으로 처리)
+        return {
+            cid: counts[cid].get(current_week, 0) - counts[cid].get(prev_week, 0)
+            for cid in counts
+        }

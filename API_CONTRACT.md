@@ -409,3 +409,161 @@ Returns deep analysis profile for a single company.
   }
 }
 ```
+
+---
+
+## PRO+ Endpoints
+
+### GET /api/v1/dashboard/company-dna/{company_id}
+
+**Auth**: PRO+
+**Description**: 회사 DNA 프로필 — Tech/Hiring/Compensation/Culture 4축 분석
+
+**Path Parameters**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `company_id` | `string` | Company identifier (UUID) |
+
+**Response**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "companyId": "uuid",
+    "companyName": "string",
+    "segmentId": "string | null",
+    "week": "2026-W13",
+    "overallScore": 78.5,
+    "tech": {
+      "stackCount": 15,
+      "diversityIndex": 3.2,
+      "diversityScore": 75.0,
+      "topTechs": [{"name": "Python", "count": 8, "pct": 53.3}]
+    },
+    "hiring": {
+      "totalPostings": 42,
+      "growthVelocity": 2.5,
+      "growthLabel": "급성장",
+      "intensityScore": 85.0,
+      "roleDistribution": {"senior": 15, "mid": 20, "junior": 7},
+      "segmentBreadth": 3
+    },
+    "compensation": {
+      "salaryAvg": 6200,
+      "salaryMin": 4000,
+      "salaryMax": 10000,
+      "positionPercentile": 75.0,
+      "positionLabel": "상위 25%",
+      "equityRatio": 0.8,
+      "benefitsCount": 12,
+      "topBenefits": ["유연근무", "점심제공", "스톡옵션"]
+    },
+    "culture": {
+      "growthStage": "scale-up",
+      "newPositionRatio": 0.6,
+      "teamSizePatterns": ["10-15명", "12명"],
+      "cultureScore": 72.0
+    }
+  }
+}
+```
+
+**CompanyDnaProfile DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `companyId` | `string` | Company identifier (UUID) |
+| `companyName` | `string` | Company display name |
+| `segmentId` | `string \| null` | Primary segment ID |
+| `week` | `string` | ISO week string |
+| `overallScore` | `number` | Composite DNA score (0–100) |
+| `tech` | `TechAxis` | Technology stack analysis |
+| `hiring` | `HiringAxis` | Hiring intensity analysis |
+| `compensation` | `CompensationAxis` | Compensation & benefits analysis |
+| `culture` | `CultureAxis` | Culture & growth stage analysis |
+
+**TechAxis DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `stackCount` | `number` | Total distinct tech stack items |
+| `diversityIndex` | `number` | Shannon diversity index |
+| `diversityScore` | `number` | Normalized diversity score (0–100) |
+| `topTechs` | `TechItem[]` | Top technologies by frequency |
+
+**HiringAxis DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalPostings` | `number` | Total active postings |
+| `growthVelocity` | `number` | Week-over-week growth rate |
+| `growthLabel` | `string` | Human-readable growth label (e.g. "급성장") |
+| `intensityScore` | `number` | Hiring intensity score (0–100) |
+| `roleDistribution` | `object` | Breakdown by seniority: `{senior, mid, junior}` |
+| `segmentBreadth` | `number` | Number of segments hiring across |
+
+**CompensationAxis DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `salaryAvg` | `number` | Average salary (만원) |
+| `salaryMin` | `number` | Minimum salary (만원) |
+| `salaryMax` | `number` | Maximum salary (만원) |
+| `positionPercentile` | `number` | Percentile rank within segment |
+| `positionLabel` | `string` | Human-readable percentile label |
+| `equityRatio` | `number` | Ratio of postings mentioning equity |
+| `benefitsCount` | `number` | Total distinct benefits offered |
+| `topBenefits` | `string[]` | Most common benefit keywords |
+
+**CultureAxis DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `growthStage` | `string` | Company growth stage (e.g. "scale-up", "startup") |
+| `newPositionRatio` | `number` | Ratio of new vs. backfill positions |
+| `teamSizePatterns` | `string[]` | Team size mentions extracted from JDs |
+| `cultureScore` | `number` | Composite culture score (0–100) |
+
+---
+
+### GET /api/v1/dashboard/segment-benchmark/{segment_id}
+
+**Auth**: PRO+
+**Description**: 세그먼트 평균 DNA — 기업 DNA 비교 기준선
+
+**Path Parameters**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `segment_id` | `string` | Segment identifier |
+
+**Response**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "segmentId": "dev_server",
+    "segmentName": "서버/백엔드",
+    "avgTechScore": 62.0,
+    "avgHiringScore": 55.0,
+    "avgSalary": 5500,
+    "avgCultureScore": 48.0,
+    "companyCount": 35
+  }
+}
+```
+
+**SegmentBenchmark DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `segmentId` | `string` | Segment identifier |
+| `segmentName` | `string` | Human-readable segment name |
+| `avgTechScore` | `number` | Average tech diversity score (0–100) |
+| `avgHiringScore` | `number` | Average hiring intensity score (0–100) |
+| `avgSalary` | `number` | Average salary in segment (만원) |
+| `avgCultureScore` | `number` | Average culture score (0–100) |
+| `companyCount` | `number` | Number of companies in benchmark |
