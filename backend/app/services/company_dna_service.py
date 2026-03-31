@@ -548,6 +548,25 @@ class CompanyDnaService:
     #  조회 API
     # ------------------------------------------------------------------ #
 
+    def resolve_company_by_name(self, name: str) -> uuid.UUID | None:
+        """기업명으로 company_id 조회 — name 또는 normalized_name 검색"""
+        # 정확한 이름 매칭
+        company = (
+            self.db.query(Company)
+            .filter(Company.name == name)
+            .first()
+        )
+        if company:
+            return company.id
+
+        # normalized_name 검색 (존재하는 경우)
+        company = (
+            self.db.query(Company)
+            .filter(func.lower(Company.name).contains(name.lower()))
+            .first()
+        )
+        return company.id if company else None
+
     def get_company_dna(self, company_id: str) -> dict | None:
         """최신 DNA 조회 (캐시 테이블에서)
 
@@ -558,7 +577,10 @@ class CompanyDnaService:
         try:
             cid = uuid.UUID(company_id)
         except ValueError:
-            return None
+            # 이름으로 검색 fallback
+            cid = self.resolve_company_by_name(company_id)
+            if not cid:
+                return None
 
         snapshot = (
             self.db.query(CompanyDnaSnapshot)
@@ -631,9 +653,78 @@ class CompanyDnaService:
                 "team_size_patterns": snapshot.team_size_signals or [],
                 "growth_stage": snapshot.growth_stage,
                 "new_position_ratio": float(snapshot.new_position_ratio),
-                "culture_score": float(snapshot.culture_score),
+                "culture_score": min(float(snapshot.culture_score) * 100, 100.0) if float(snapshot.culture_score) <= 1.0 else float(snapshot.culture_score),
             },
             "overall_score": float(snapshot.overall_dna_score),
+        }
+
+    def compare_companies(self, company_id_a: str, company_id_b: str) -> dict | None:
+        """2개 기업 DNA 비교 — 각각 DNA 조회 후 세그먼트 벤치마크 포함"""
+        dna_a = self.get_company_dna(company_id_a)
+        dna_b = self.get_company_dna(company_id_b)
+
+        if not dna_a and not dna_b:
+            return None
+        if not dna_a:
+            return {"error": f"기업 A '{company_id_a}'의 DNA 데이터를 찾을 수 없습니다.", "missing": "a"}
+        if not dna_b:
+            return {"error": f"기업 B '{company_id_b}'의 DNA 데이터를 찾을 수 없습니다.", "missing": "b"}
+
+        # 동일 세그먼트인 경우 벤치마크 포함
+        benchmark = None
+        if dna_a.get("segment_id") and dna_a["segment_id"] == dna_b.get("segment_id"):
+            benchmark = self.get_segment_benchmarks(dna_a["segment_id"])
+
+        return {
+            "company_a": dna_a,
+            "company_b": dna_b,
+            "segment_benchmark": benchmark,
+        }
+
+    def get_company_dna_trend(self, company_id: str, weeks: int = 12) -> dict | None:
+        """주간 DNA 점수 추이 조회 — 최근 N주 스냅샷 시계열 반환"""
+        try:
+            cid = uuid.UUID(company_id)
+        except ValueError:
+            cid = self.resolve_company_by_name(company_id) if hasattr(self, 'resolve_company_by_name') else None
+            if not cid:
+                return None
+
+        snapshots = (
+            self.db.query(CompanyDnaSnapshot)
+            .filter(CompanyDnaSnapshot.company_id == cid)
+            .order_by(desc(CompanyDnaSnapshot.week))
+            .limit(weeks)
+            .all()
+        )
+
+        if not snapshots:
+            return None
+
+        # 회사 이름 조회
+        company = self.db.query(Company).filter(Company.id == cid).first()
+        company_name = company.name if company else company_id
+
+        # week ASC 순으로 정렬
+        snapshots.sort(key=lambda s: s.week)
+
+        data_points = [
+            {
+                "week": s.week,
+                "overall_score": float(s.overall_dna_score),
+                "tech_score": float(s.tech_diversity_score),
+                "hiring_score": float(s.hiring_intensity_score),
+                "salary_pct": float(s.salary_position_pct) if s.salary_position_pct is not None else None,
+                "culture_score": float(s.culture_score),
+            }
+            for s in snapshots
+        ]
+
+        return {
+            "company_id": company_id,
+            "company_name": company_name,
+            "segment_id": snapshots[0].segment_id if snapshots else None,
+            "data_points": data_points,
         }
 
     def get_segment_benchmarks(self, segment_id: str) -> dict | None:

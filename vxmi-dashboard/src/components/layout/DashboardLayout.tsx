@@ -195,6 +195,7 @@ const ANALYSIS_NAV: NavItem[] = [
   { label: '기업 분석', to: '/dashboard/company-analysis', icon: <IconBuilding />, proOnly: true },
   { label: 'JD 인사이트', to: '/dashboard/jd-insights', icon: <IconDocument />, proOnly: true },
   { label: '회사 DNA', to: '/dashboard/company-dna', icon: <IconBuilding />, proOnly: true },
+  { label: '기업 비교', to: '/dashboard/company-compare', icon: <IconBuilding />, proOnly: true },
 ];
 
 const MY_NAV: NavItem[] = [

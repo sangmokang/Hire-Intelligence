@@ -25,6 +25,7 @@ import { ResumeMatchView } from './components/views/ResumeMatchView';
 import { CompanyAnalysisView } from './components/views/CompanyAnalysisView';
 import { JdInsightsView } from './components/views/JdInsightsView'
 import { CompanyDnaView } from './components/views/CompanyDnaView';
+import { CompanyCompareView } from './components/views/CompanyCompareView';
 
 // My pages
 import ProfilePage from './pages/my/ProfilePage';
@@ -102,6 +103,11 @@ export const router = createBrowserRouter([
       { path: '/dashboard/company-dna', element: (
         <PlanGuard requiredPlan="PRO">
           <CompanyDnaView />
+        </PlanGuard>
+      ) },
+      { path: '/dashboard/company-compare', element: (
+        <PlanGuard requiredPlan="PRO">
+          <CompanyCompareView />
         </PlanGuard>
       ) },
 

@@ -68,3 +68,28 @@ class SegmentBenchmarkResponse(CamelModel):
     avg_salary: int | None
     avg_culture_score: float
     company_count: int
+
+
+class DnaComparisonResponse(CamelModel):
+    """2개 기업 DNA 비교 응답"""
+    company_a: CompanyDnaResponse
+    company_b: CompanyDnaResponse
+    segment_benchmark: SegmentBenchmarkResponse | None
+
+
+class DnaTrendPoint(CamelModel):
+    """DNA 트렌드 단일 데이터 포인트"""
+    week: str
+    overall_score: float
+    tech_score: float
+    hiring_score: float
+    salary_pct: float | None
+    culture_score: float
+
+
+class DnaTrendResponse(CamelModel):
+    """DNA 트렌드 응답"""
+    company_id: str
+    company_name: str
+    segment_id: str | None
+    data_points: list[DnaTrendPoint]

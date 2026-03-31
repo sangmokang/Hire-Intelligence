@@ -59,3 +59,25 @@ export interface SegmentBenchmark {
   avgCultureScore: number
   companyCount: number
 }
+
+export interface DnaTrendPoint {
+  week: string
+  overallScore: number
+  techScore: number
+  hiringScore: number
+  salaryPct: number | null
+  cultureScore: number
+}
+
+export interface DnaTrendResponse {
+  companyId: string
+  companyName: string
+  segmentId: string | null
+  dataPoints: DnaTrendPoint[]
+}
+
+export interface DnaComparisonResponse {
+  companyA: CompanyDnaResponse
+  companyB: CompanyDnaResponse
+  segmentBenchmark: SegmentBenchmark | null
+}

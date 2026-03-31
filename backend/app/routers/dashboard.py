@@ -27,7 +27,7 @@ from app.schemas.dashboard import (
 from app.services.dashboard_service import DashboardService
 from app.services.jd_insights_service import JdInsightsService
 from app.schemas.jd_analysis import JdInsightsResponse
-from app.schemas.company_dna import CompanyDnaResponse, SegmentBenchmarkResponse
+from app.schemas.company_dna import CompanyDnaResponse, SegmentBenchmarkResponse, DnaComparisonResponse, DnaTrendResponse
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -372,6 +372,40 @@ def get_company_analysis(
     )
 
     return ApiResponse(data=profile)
+
+
+@router.get("/company-dna/compare", response_model=ApiResponse[DnaComparisonResponse])
+def compare_company_dna(
+    company_a: str = Query(..., description="기업 A ID 또는 이름"),
+    company_b: str = Query(..., description="기업 B ID 또는 이름"),
+    current_user: dict = Depends(require_pro),
+    db: Session = Depends(get_db),
+):
+    """2개 기업 DNA 비교 — Side-by-side 4축 비교 (PRO+)"""
+    from app.services.company_dna_service import CompanyDnaService
+    service = CompanyDnaService(db)
+    result = service.compare_companies(company_a, company_b)
+    if not result:
+        raise HTTPException(status_code=404, detail="두 기업 모두 DNA 데이터를 찾을 수 없습니다.")
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return ApiResponse(data=DnaComparisonResponse(**result))
+
+
+@router.get("/company-dna/{company_id}/trend", response_model=ApiResponse[DnaTrendResponse])
+def get_company_dna_trend(
+    company_id: str,
+    weeks: int = Query(12, ge=4, le=52),
+    current_user: dict = Depends(require_pro),
+    db: Session = Depends(get_db),
+):
+    """회사 DNA 트렌드 — 주간 DNA 점수 추이 (PRO+)"""
+    from app.services.company_dna_service import CompanyDnaService
+    service = CompanyDnaService(db)
+    data = service.get_company_dna_trend(company_id, weeks)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"기업 '{company_id}'의 DNA 트렌드 데이터를 찾을 수 없습니다.")
+    return ApiResponse(data=DnaTrendResponse(**data))
 
 
 @router.get("/company-dna/{company_id}", response_model=ApiResponse[CompanyDnaResponse])

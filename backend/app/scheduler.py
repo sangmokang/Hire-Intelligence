@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
+# DNA refresh 재시도 관리
+_dna_retry_counts: dict[str, int] = {}
+DNA_REFRESH_MAX_RETRIES = 3
+
 
 async def weekly_crawl_job():
     """주간 크롤링 작업 — 매주 월요일 03:00 KST 실행"""
@@ -62,7 +66,7 @@ def check_crawl_completed_this_week(db: Session, week: str) -> bool:
 
 
 async def weekly_dna_refresh_job():
-    """주간 DNA 스냅샷 갱신 — 크롤 완료 확인 후 실행 (매주 월요일 05:00 KST)"""
+    """주간 DNA 스냅샷 갱신 — 크롤 미완료 시 최대 3회 재시도 (1시간 간격)"""
     from app.database import SessionLocal
     from app.services.company_dna_service import CompanyDnaService
     import datetime
@@ -73,20 +77,35 @@ async def weekly_dna_refresh_job():
 
     db = SessionLocal()
     try:
-        # 현재 ISO 주차 계산
         now = datetime.datetime.now(datetime.UTC)
         week = f"{now.isocalendar()[0]}-W{now.isocalendar()[1]:02d}"
 
-        # 크롤 완료 확인
         if not check_crawl_completed_this_week(db, week):
-            logger.warning(f"Week {week} crawl not completed yet, skipping DNA refresh")
+            retry_count = _dna_retry_counts.get(week, 0)
+            if retry_count < DNA_REFRESH_MAX_RETRIES:
+                _dna_retry_counts[week] = retry_count + 1
+                # 1시간 후 재시도 스케줄
+                from apscheduler.triggers.date import DateTrigger
+                next_run = now + datetime.timedelta(hours=1)
+                scheduler.add_job(
+                    weekly_dna_refresh_job,
+                    trigger=DateTrigger(run_date=next_run),
+                    id=f'dna_refresh_retry_{week}_{retry_count + 1}',
+                    replace_existing=True,
+                )
+                logger.warning(f"Week {week} crawl not ready, retry {retry_count + 1}/{DNA_REFRESH_MAX_RETRIES} scheduled")
+            else:
+                logger.error(f"Week {week} DNA refresh: {DNA_REFRESH_MAX_RETRIES}회 재시도 소진")
             return
 
+        # 크롤 완료 — DNA 갱신 실행
         service = CompanyDnaService(db)
         result = service.refresh_all(week)
-        logger.info(f"DNA refresh completed: {result}")
+        logger.info(f"DNA refresh completed for {week}: {result}")
+        # 성공 시 재시도 카운트 초기화
+        _dna_retry_counts.pop(week, None)
     except Exception as e:
-        logger.error(f"주간 DNA 갱신 오류: {e}")
+        logger.error(f"DNA refresh failed: {e}")
     finally:
         db.close()
 

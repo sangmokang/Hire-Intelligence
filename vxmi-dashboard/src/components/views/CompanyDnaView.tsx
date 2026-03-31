@@ -1,8 +1,11 @@
 import { useState } from 'react'
-import { useCompanyDna, useSegmentBenchmark } from '../../hooks/useCompanyDna'
+import { Link } from 'react-router-dom'
+import { useCompanyDna, useSegmentBenchmark, useCompanyDnaTrend } from '../../hooks/useCompanyDna'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { CardSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
+import DnaRadarChart from '../charts/DnaRadarChart'
+import DnaTrendChart from '../charts/DnaTrendChart'
 
 const DEFAULT_COMPANY_BTNS = ['토스', '카카오', '네이버', '삼성전자', '쿠팡']
 
@@ -37,6 +40,7 @@ export function CompanyDnaView() {
 
   const { data: dna, isLoading, error } = useCompanyDna(selectedCompany)
   const { data: benchmark } = useSegmentBenchmark(dna?.segmentId ?? null)
+  const { data: trend, isLoading: trendLoading } = useCompanyDnaTrend(dna?.companyId ?? null)
 
   function handleSearch(name: string) {
     const trimmed = name.trim()
@@ -47,11 +51,21 @@ export function CompanyDnaView() {
     <ErrorBoundary>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">회사 DNA</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            기업의 기술 스택, 채용 패턴, 보상 구조, 문화 신호를 종합 분석합니다.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">회사 DNA</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              기업의 기술 스택, 채용 패턴, 보상 구조, 문화 신호를 종합 분석합니다.
+            </p>
+          </div>
+          {selectedCompany && (
+            <Link
+              to={`/dashboard/company-compare?a=${encodeURIComponent(selectedCompany)}`}
+              className="px-3 py-1.5 text-xs border border-gray-200 rounded-md hover:bg-gray-50 transition-colors text-gray-600"
+            >
+              비교하기 →
+            </Link>
+          )}
         </div>
 
         {/* Quick-select buttons */}
@@ -161,6 +175,9 @@ export function CompanyDnaView() {
                 )}
               </div>
             </div>
+
+            {/* Radar Chart — company vs segment benchmark */}
+            <DnaRadarChart dna={dna} benchmark={benchmark ?? null} />
 
             {/* 2x2 card grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -349,6 +366,14 @@ export function CompanyDnaView() {
               </div>
 
             </div>
+
+            {/* Trend Chart — 12-week DNA score history */}
+            {trendLoading && (
+              <div className="h-32 bg-gray-100 rounded-xl border border-gray-200 animate-pulse" />
+            )}
+            {!trendLoading && trend && trend.dataPoints.length > 0 && (
+              <DnaTrendChart dataPoints={trend.dataPoints} companyName={trend.companyName} />
+            )}
           </>
         )}
       </div>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.database import get_db
 from app.middleware.rbac import require_super_admin
@@ -25,6 +25,19 @@ async def get_stats(current_user: dict = Depends(require_super_admin)):
             "total_organizations": 0,
         }
     )
+
+
+@router.post("/seed-demo", response_model=ApiResponse[dict])
+def seed_demo_data(
+    weeks: int = Query(12, ge=4, le=52),
+    current_user: dict = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """데모 데이터 시딩 (SUPER_ADMIN 전용) — B2B 프레젠테이션용"""
+    from app.seed.demo_seeder import DemoSeeder
+    seeder = DemoSeeder(db)
+    result = seeder.run(weeks=weeks)
+    return ApiResponse(data=result)
 
 
 @router.post("/backfill-dna", response_model=ApiResponse[dict])
