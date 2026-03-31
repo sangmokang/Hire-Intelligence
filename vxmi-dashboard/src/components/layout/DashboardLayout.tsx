@@ -227,6 +227,7 @@ function NavSection({ title, items, isStarterUser }: { title: string; items: Nav
             <li key={item.to}>
               <NavLink
                 to={item.to}
+                end
                 onClick={() => {
                   // 사이드바 네비게이션 클릭 이벤트 GA4 전송
                   trackEvent('Navigation', 'click_sidebar_nav', item.label);
