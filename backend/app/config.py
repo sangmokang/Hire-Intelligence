@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Sentry 오류 추적
     SENTRY_DSN: str | None = None
 
+    # Slack Incoming Webhook URL (알림 전송용, 미설정 시 알림 비활성화)
+    SLACK_WEBHOOK_URL: str | None = None
+
     # 인증 토큰 만료 시간
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30

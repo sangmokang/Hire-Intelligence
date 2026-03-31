@@ -3,14 +3,29 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from app.config import settings
+
+
+def _before_send(event: dict, hint: dict) -> dict | None:
+    """health check 엔드포인트에서 발생한 에러는 Sentry로 전송하지 않음"""
+    request = event.get("request", {})
+    url = request.get("url", "")
+    if url.endswith("/health"):
+        return None
+    return event
+
 
 if settings.SENTRY_DSN:
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
         traces_sample_rate=0.1,
+        profiles_sample_rate=0.1,
         environment=settings.APP_ENV,
+        send_default_pii=False,          # 개인정보(IP, 쿠키 등) 자동 수집 비활성화
+        integrations=[FastApiIntegration()],  # FastAPI 요청/응답 자동 계측
+        before_send=_before_send,        # health check 에러 필터링
     )
 from app.routers import auth, dashboard, me, admin
 from app.routers.subscription import router as subscription_router

@@ -26,6 +26,7 @@ import { CompanyAnalysisView } from './components/views/CompanyAnalysisView';
 import { JdInsightsView } from './components/views/JdInsightsView'
 import { CompanyDnaView } from './components/views/CompanyDnaView';
 import { CompanyCompareView } from './components/views/CompanyCompareView';
+import { AdminDataView } from './components/views/AdminDataView';
 
 // My pages
 import ProfilePage from './pages/my/ProfilePage';
@@ -177,7 +178,7 @@ export const router = createBrowserRouter([
         path: '/admin/data',
         element: (
           <RoleGuard requiredRole="SUPER_ADMIN">
-            <PlaceholderPage title="데이터 조회" />
+            <AdminDataView />
           </RoleGuard>
         ),
       },

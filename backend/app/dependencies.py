@@ -1,3 +1,4 @@
+import sentry_sdk
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from functools import lru_cache
@@ -41,6 +42,8 @@ async def get_current_user(
                 detail="유효하지 않거나 만료된 토큰입니다.",
             )
         user_id = response.user.id
+        # Sentry 사용자 컨텍스트 설정 (토큰 검증 성공 후)
+        sentry_sdk.set_user({"id": str(user_id), "email": response.user.email})
         # user_profiles 테이블에서 role, plan 조회 (RBAC 및 플랜 접근 제어용)
         profile = supabase.table("user_profiles").select("role, plan").eq("id", user_id).single().execute()
         role = profile.data.get("role", "USER") if profile.data else "USER"

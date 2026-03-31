@@ -29,8 +29,8 @@ export default function DnaTrendChart({ dataPoints, companyName }: DnaTrendChart
           <XAxis dataKey="weekLabel" tick={{ fontSize: 11 }} />
           <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
           <Tooltip
-            formatter={(value: number, name: string) => [`${value?.toFixed(1) ?? '-'}점`, name]}
-            labelFormatter={(label: string) => `${companyName} — ${label}`}
+            formatter={(value: unknown, name: unknown) => [`${Number(value)?.toFixed(1) ?? '-'}점`, String(name)]}
+            labelFormatter={(label: unknown) => `${companyName} — ${label}`}
           />
           <Legend />
           {LINES.map(line => (

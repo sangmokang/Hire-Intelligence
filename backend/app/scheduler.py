@@ -2,6 +2,8 @@
 import logging
 from contextlib import asynccontextmanager
 
+from app.services.notification import notifier
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
@@ -46,11 +48,27 @@ async def weekly_crawl_job():
             crawl_run.total_parsed = stats.get("success", 0)
             db.commit()
             logger.info(f"주간 크롤+파싱 완료: {stats}")
+            # 크롤 성공 알림 전송
+            import datetime as _dt
+            _now = _dt.datetime.now(_dt.UTC)
+            _week = f"{_now.isocalendar()[0]}-W{_now.isocalendar()[1]:02d}"
+            await notifier.send_crawl_success(
+                platform="wanted",
+                count=crawl_run.total_fetched,
+                week=_week,
+            )
         else:
             logger.warning(f"크롤 실패: status={crawl_run.status}")
+            # 크롤 상태 실패 알림 전송
+            await notifier.send_crawl_failure(
+                platform="wanted",
+                error=f"status={crawl_run.status}",
+            )
 
     except Exception as e:
         logger.error(f"주간 크롤링 오류: {e}")
+        # 예외 발생 시 크롤 실패 알림 전송
+        await notifier.send_crawl_failure(platform="wanted", error=str(e))
     finally:
         db.close()
 
@@ -75,11 +93,12 @@ async def weekly_dna_refresh_job():
         logger.error("DATABASE_URL 미설정 — DNA 갱신 건너뜀")
         return
 
+    # week를 try 외부에서 초기화 — except 블록에서 안전하게 참조 가능
+    now = datetime.datetime.now(datetime.UTC)
+    week = f"{now.isocalendar()[0]}-W{now.isocalendar()[1]:02d}"
+
     db = SessionLocal()
     try:
-        now = datetime.datetime.now(datetime.UTC)
-        week = f"{now.isocalendar()[0]}-W{now.isocalendar()[1]:02d}"
-
         if not check_crawl_completed_this_week(db, week):
             retry_count = _dna_retry_counts.get(week, 0)
             if retry_count < DNA_REFRESH_MAX_RETRIES:
@@ -96,6 +115,12 @@ async def weekly_dna_refresh_job():
                 logger.warning(f"Week {week} crawl not ready, retry {retry_count + 1}/{DNA_REFRESH_MAX_RETRIES} scheduled")
             else:
                 logger.error(f"Week {week} DNA refresh: {DNA_REFRESH_MAX_RETRIES}회 재시도 소진")
+                # 재시도 횟수 소진 시 실패 알림 전송
+                await notifier.send_dna_refresh_result(
+                    week=week,
+                    success=False,
+                    detail=f"{DNA_REFRESH_MAX_RETRIES}회 재시도 소진",
+                )
             return
 
         # 크롤 완료 — DNA 갱신 실행
@@ -104,8 +129,12 @@ async def weekly_dna_refresh_job():
         logger.info(f"DNA refresh completed for {week}: {result}")
         # 성공 시 재시도 카운트 초기화
         _dna_retry_counts.pop(week, None)
+        # DNA 갱신 성공 알림 전송
+        await notifier.send_dna_refresh_result(week=week, success=True, detail=str(result))
     except Exception as e:
         logger.error(f"DNA refresh failed: {e}")
+        # 예외 발생 시 DNA 갱신 실패 알림 전송
+        await notifier.send_dna_refresh_result(week=week, success=False, detail=str(e))
     finally:
         db.close()
 
