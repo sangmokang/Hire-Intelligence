@@ -377,7 +377,7 @@ export function DashboardLayout() {
                   {user.profileImageUrl ? (
                     <img src={user.profileImageUrl} alt={user.name} className="w-full h-full object-cover" />
                   ) : (
-                    user.name.charAt(0).toUpperCase()
+                    (user.name ?? '').charAt(0).toUpperCase()
                   )}
                 </div>
                 <span className="hidden sm:block text-sm font-medium text-gray-700">{user.name}</span>

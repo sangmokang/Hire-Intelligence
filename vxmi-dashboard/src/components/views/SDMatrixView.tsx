@@ -105,9 +105,10 @@ export function SDMatrixView() {
     return Math.ceil(max / 2000) * 2000 + 2000
   }, [activeData])
 
-  const handleBubbleClick = (data: { segment?: EnrichedSDItem } | null) => {
-    if (!data?.segment) return
-    const seg = data.segment
+  const handleBubbleClick = (data: unknown) => {
+    const typed = data as { segment?: EnrichedSDItem } | null;
+    if (!typed?.segment) return
+    const seg = typed.segment
     setSelectedSegmentId(seg.segmentId)
     setDrillSegment(seg.segmentName)
   }

@@ -48,7 +48,7 @@ export const authHandlers = [
   }),
 
   // Register
-  http.post('/api/v1/auth/register', async ({ request }) => {
+  http.post('/api/v1/auth/signup', async ({ request }) => {
     await delay(500);
     const body = await request.json() as { email: string; password: string; name: string; category: string; company?: string };
 

@@ -27,7 +27,7 @@ export interface User {
   jobTitle?: string;       // 직함 (신규)
   organizationId?: string; // 멀티테넌시 조직 ID (신규)
   authProvider: 'EMAIL' | 'GOOGLE';
-  createdAt: string;
+  createdAt?: string;
   lastLoginAt?: string;
 }
 
@@ -49,6 +49,7 @@ export interface AuthResponse {
   status: 'success' | 'error';
   data: {
     accessToken: string;
+    refreshToken?: string;
     user: User;
   };
 }

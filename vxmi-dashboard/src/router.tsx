@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import LandingPage from './pages/LandingPage';
 
 // Layouts
@@ -33,6 +34,11 @@ import ProfilePage from './pages/my/ProfilePage';
 import BillingPage from './pages/my/BillingPage';
 import PlansPage from './pages/my/PlansPage';
 import SettingsPage from './pages/my/SettingsPage';
+
+// My pages - lazy loaded
+const AnalyticsPage = lazy(() => import('./pages/my/AnalyticsPage'));
+const BillingHistoryPage = lazy(() => import('./pages/my/BillingHistoryPage'));
+const DeleteAccountPage = lazy(() => import('./pages/my/DeleteAccountPage'));
 
 // Placeholder components for future pages
 // eslint-disable-next-line react-refresh/only-export-components
@@ -116,14 +122,14 @@ export const router = createBrowserRouter([
       { path: '/my/profile', element: <ProfilePage /> },
       { path: '/my/billing', element: <BillingPage /> },
       { path: '/my/billing/plans', element: <PlansPage /> },
-      { path: '/my/billing/history', element: <PlaceholderPage title="결제 이력" /> },
+      { path: '/my/billing/history', element: <Suspense fallback={null}><BillingHistoryPage /></Suspense> },
       { path: '/my/billing/payment-methods', element: <PlaceholderPage title="결제 수단 관리" /> },
-      { path: '/my/analytics', element: <PlaceholderPage title="사용 분석" /> },
+      { path: '/my/analytics', element: <Suspense fallback={null}><AnalyticsPage /></Suspense> },
       { path: '/my/analytics/usage', element: <PlaceholderPage title="사용량 통계" /> },
       { path: '/my/analytics/history', element: <PlaceholderPage title="활동 타임라인" /> },
       { path: '/my/analytics/search', element: <PlaceholderPage title="검색 히스토리" /> },
       { path: '/my/settings', element: <SettingsPage /> },
-      { path: '/my/delete-account', element: <PlaceholderPage title="회원 탈퇴" /> },
+      { path: '/my/delete-account', element: <Suspense fallback={null}><DeleteAccountPage /></Suspense> },
 
       // Admin panel routes - each wrapped with RoleGuard
       {

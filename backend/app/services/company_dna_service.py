@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.models.ops import Company
 from app.models.pulse import JdAnalysis, CompanyDnaSnapshot, JobPosting
+from app.services.cache import cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -574,6 +575,12 @@ class CompanyDnaService:
         Returns None if no snapshot exists.
         Format the response for API consumption.
         """
+        # 캐시 확인 — DNA 데이터는 주간 갱신이므로 1800초 TTL
+        _cache_key = f"dna_company:{company_id}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         try:
             cid = uuid.UUID(company_id)
         except ValueError:
@@ -620,7 +627,7 @@ class CompanyDnaService:
         company = self.db.query(Company).filter(Company.id == cid).first()
         company_name = company.name if company else company_id
 
-        return {
+        _result = {
             "company_id": company_id,
             "company_name": company_name,
             "segment_id": snapshot.segment_id,
@@ -657,6 +664,8 @@ class CompanyDnaService:
             },
             "overall_score": float(snapshot.overall_dna_score),
         }
+        cache_service.set(_cache_key, _result, ttl=1800)
+        return _result
 
     def compare_companies(self, company_id_a: str, company_id_b: str) -> dict | None:
         """2개 기업 DNA 비교 — 각각 DNA 조회 후 세그먼트 벤치마크 포함"""

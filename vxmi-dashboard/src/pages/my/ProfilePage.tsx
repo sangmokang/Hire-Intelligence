@@ -34,7 +34,7 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
-  const joinDate = new Date(user.createdAt).toLocaleDateString('ko-KR', {
+  const joinDate = new Date(user.createdAt ?? Date.now()).toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

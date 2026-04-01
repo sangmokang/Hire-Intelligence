@@ -12,7 +12,7 @@ initSentry();
 initGA4();
 
 async function enableMocking() {
-  if (import.meta.env.DEV) {
+  if (import.meta.env.VITE_ENABLE_MOCKS === 'true') {
     const { worker } = await import('./mocks/browser');
     return worker.start({ onUnhandledRequest: 'bypass' });
   }

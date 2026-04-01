@@ -7,6 +7,7 @@ from sqlalchemy import func, desc
 from app.models.pulse import WeeklySnapshot, SegmentSnapshot, JobPosting, TalentPool, KeywordIndex, JdAnalysis
 from app.models.ops import Company, Position
 from app.constants.segments import SEGMENTS, LEGACY_TO_CANONICAL
+from app.services.cache import cache_service
 
 
 # 세그먼트 이름 매핑 — 표준 ID 기반으로 생성, 레거시 ID도 하위 호환 지원
@@ -31,6 +32,12 @@ class DashboardService:
 
     def get_sd_matrix(self, week: str | None = None) -> dict:
         """수급 매트릭스 데이터 — WeeklySnapshot + SegmentSnapshot"""
+        # 캐시 확인 — week가 None이면 키를 "latest"로 통일
+        _cache_key = f"dashboard_sd_matrix:{week or 'latest'}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         # Resolve target week
         if week is None:
             row = self.db.query(func.max(WeeklySnapshot.week)).scalar()
@@ -87,15 +94,23 @@ class DashboardService:
             if segments else 1.0
         )
 
-        return {
+        _result = {
             "segments": segments,
             "total_demand": total_demand,
             "market_sd_ratio": market_sd,
             "week": week,
         }
+        cache_service.set(_cache_key, _result, ttl=3600)
+        return _result
 
     def get_company_rankings(self, segment_id: str | None = None, limit: int = 20) -> dict:
         """기업 순위 — JobPosting + Company"""
+        # 캐시 확인
+        _cache_key = f"dashboard_company_rankings:{segment_id or 'all'}:{limit}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         q = (
             self.db.query(
                 JobPosting.company_id,
@@ -144,10 +159,18 @@ class DashboardService:
                 "segment_ids": seg_map.get(cid, []),
             })
 
-        return {"companies": companies}
+        _result = {"companies": companies}
+        cache_service.set(_cache_key, _result, ttl=3600)
+        return _result
 
     def get_timeline(self, company_id: str | None = None) -> dict:
         """채용 타임라인 — JobPosting + Company (last 12 weeks)"""
+        # 캐시 확인
+        _cache_key = f"dashboard_timeline:{company_id or 'all'}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         # Determine the last 12 weeks
         max_week_row = self.db.query(func.max(JobPosting.week)).scalar()
         if not max_week_row:
@@ -197,10 +220,18 @@ class DashboardService:
             for r in rows
         ]
 
-        return {"entries": entries}
+        _result = {"entries": entries}
+        cache_service.set(_cache_key, _result, ttl=1800)
+        return _result
 
     def get_trends(self, segment_id: str | None = None) -> dict:
         """트렌드 데이터 — WeeklySnapshot (last 12 weeks)"""
+        # 캐시 확인
+        _cache_key = f"dashboard_trends:{segment_id or 'all'}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         weeks_subq = (
             self.db.query(WeeklySnapshot.week)
             .distinct()
@@ -223,10 +254,18 @@ class DashboardService:
             for r in rows
         ]
 
-        return {"data_points": data_points}
+        _result = {"data_points": data_points}
+        cache_service.set(_cache_key, _result, ttl=3600)
+        return _result
 
     def get_company_profile(self, company_id: str) -> dict | None:
         """기업 프로필 — Company + JobPosting + Position"""
+        # 캐시 확인
+        _cache_key = f"dashboard_company_profile:{company_id}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         try:
             cid_uuid = uuid.UUID(company_id)
         except ValueError:
@@ -313,7 +352,7 @@ class DashboardService:
                 "jd_count": len(jd_analyses),
             }
 
-        return {
+        _result = {
             "company_id": company_id,
             "company_name": company.name,
             "segment_id": company.segment_id,
@@ -323,9 +362,18 @@ class DashboardService:
             "otw_pct": otw_pct,
             "jd_analysis": jd_analysis_data,
         }
+        cache_service.set(_cache_key, _result, ttl=1800)
+        return _result
 
     def get_resume_match_data(self, keywords: list[str], limit: int = 10) -> list[dict]:
         """이력서 매칭용 기업 + 키워드 데이터"""
+        # 캐시 확인 — 키워드 목록을 정렬 후 조인하여 키 생성
+        _kw_key = ",".join(sorted(keywords)) if keywords else "none"
+        _cache_key = f"dashboard_resume_match:{_kw_key}:{limit}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         # Find companies that appear in KeywordIndex for matched keywords
         if keywords:
             kw_lower = [kw.lower() for kw in keywords]
@@ -377,7 +425,7 @@ class DashboardService:
             .all()
         }
 
-        return [
+        _result = [
             {
                 "company_id": str(c.id),
                 "company_name": c.name,
@@ -387,9 +435,18 @@ class DashboardService:
             }
             for c in companies
         ]
+        cache_service.set(_cache_key, _result, ttl=1800)
+        return _result
 
     def get_company_wow_changes(self, company_ids: list, current_week: str) -> dict[str, int]:
         """기업별 주간 채용 건수 변화량 계산 (이번 주 - 지난 주)"""
+        # 캐시 확인 — company_ids 정렬 후 조인하여 키 생성
+        _ids_key = ",".join(sorted(str(c) for c in company_ids))
+        _cache_key = f"dashboard_wow_changes:{_ids_key}:{current_week}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         # ISO 주차 문자열(예: "2026-W13") → 이전 주차 문자열 계산
         try:
             year_str, week_str = current_week.split("-W")
@@ -431,7 +488,9 @@ class DashboardService:
             counts[cid][r.week] = int(r.total_count)
 
         # 변화량 = 이번 주 - 지난 주 (데이터 없으면 0으로 처리)
-        return {
+        _result = {
             cid: counts[cid].get(current_week, 0) - counts[cid].get(prev_week, 0)
             for cid in counts
         }
+        cache_service.set(_cache_key, _result, ttl=3600)
+        return _result

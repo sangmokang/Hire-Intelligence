@@ -5,6 +5,7 @@ import { apiClient } from '../services/apiClient';
 interface AuthState {
   user: User | null;
   accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -19,22 +20,33 @@ interface AuthState {
   initializeAuth: () => Promise<void>;
 }
 
+// 로그인/회원가입 후 전체 프로필을 가져오는 헬퍼
+async function fetchProfile(): Promise<void> {
+  const { data } = await apiClient.get('/api/v1/auth/me');
+  const profile = data.data;
+  useAuthStore.getState().setUser(profile);
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
+  refreshToken: null,
   isAuthenticated: false,
-  isLoading: true, // starts true for initial auth check
+  isLoading: true,
   error: null,
 
   login: async (credentials) => {
     set({ error: null });
     try {
       const { data } = await apiClient.post('/api/v1/auth/login', credentials);
+      // 토큰 먼저 저장 (fetchProfile 요청에 Authorization 헤더 필요)
       set({
-        user: data.data.user,
         accessToken: data.data.accessToken,
-        isAuthenticated: true,
+        refreshToken: data.data.refreshToken || null,
       });
+      // /auth/me에서 전체 프로필 가져오기
+      await fetchProfile();
+      set({ isAuthenticated: true });
     } catch (err: unknown) {
       // AxiosError 응답에서 서버 메시지를 우선 추출
       const axiosData = (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })?.response?.data;
@@ -49,11 +61,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       const { data: res } = await apiClient.post('/api/v1/auth/signup', data);
+      // 토큰 먼저 저장
       set({
-        user: res.data.user,
         accessToken: res.data.accessToken,
-        isAuthenticated: true,
+        refreshToken: res.data.refreshToken || null,
       });
+      // /auth/me에서 전체 프로필 가져오기
+      await fetchProfile();
+      set({ isAuthenticated: true });
     } catch (err: unknown) {
       const axiosData = (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })?.response?.data;
       const message = axiosData?.error?.message || axiosData?.detail
@@ -79,6 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({
       user: null,
       accessToken: null,
+      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -86,16 +102,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initializeAuth: async () => {
     try {
-      // Silent refresh - try to restore session from HttpOnly cookie
-      const { data } = await apiClient.post('/api/v1/auth/refresh');
+      const refreshToken = get().refreshToken;
+      if (!refreshToken) {
+        set({ isLoading: false });
+        return;
+      }
+      // refreshToken을 POST body에 포함하여 세션 복원
+      const { data } = await apiClient.post('/api/v1/auth/refresh', { refreshToken });
       set({
-        user: data.data.user,
         accessToken: data.data.accessToken,
-        isAuthenticated: true,
-        isLoading: false,
+        refreshToken: data.data.refreshToken || get().refreshToken,
       });
+      await fetchProfile();
+      set({ isAuthenticated: true, isLoading: false });
     } catch {
-      set({ isLoading: false });
+      get().clearAuth();
     }
   },
 }));

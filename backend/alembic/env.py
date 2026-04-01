@@ -25,7 +25,7 @@ if config.config_file_name is not None:
 # DATABASE_URL 환경변수 우선 사용
 database_url = os.getenv("DATABASE_URL", "")
 if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

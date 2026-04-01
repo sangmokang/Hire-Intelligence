@@ -364,11 +364,47 @@ def get_company_analysis(
             weekly_trend=recent_trend,
         )
 
+    # DNA 기반 추가 메트릭 계산 (0.0~1.0 클램핑)
+    def _clamp(v: float | None) -> float:
+        if v is None:
+            return 0.0
+        return max(0.0, min(1.0, v))
+
+    growth_score = 0.0
+    salary_competitiveness = 0.0
+    tech_diversity_score = 0.0
+    hiring_velocity = 0.0
+
+    if dna:
+        # growth_score: growth_velocity → 0~1 정규화 ([-5, +5] 범위 가정, 중앙 0.5)
+        gv = dna["hiring"].get("growth_velocity")
+        if gv is not None:
+            growth_score = _clamp((gv + 5.0) / 10.0)
+
+        # salary_competitiveness: salary_position_pct (0~100) → 0~1
+        sp = dna["compensation"].get("position_percentile")
+        if sp is not None:
+            salary_competitiveness = _clamp(sp / 100.0)
+
+        # tech_diversity: diversity_score (0~100) → 0~1
+        td = dna["tech"].get("diversity_score")
+        if td is not None:
+            tech_diversity_score = _clamp(td / 100.0)
+
+        # hiring_velocity: hiring_intensity_score (0~100) → 0~1
+        hi = dna["hiring"].get("intensity_score")
+        if hi is not None:
+            hiring_velocity = _clamp(hi / 100.0)
+
     profile = CompanyProfile(
         company_id=company_id,
         name=raw["company_name"],
         talent_density=talent_density,
         hiring_power=hiring_power,
+        growth_score=growth_score,
+        salary_competitiveness=salary_competitiveness,
+        tech_diversity=tech_diversity_score,
+        hiring_velocity=hiring_velocity,
     )
 
     return ApiResponse(data=profile)

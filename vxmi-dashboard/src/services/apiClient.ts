@@ -29,9 +29,19 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
       try {
-        const { data } = await apiClient.post('/api/v1/auth/refresh');
+        const refreshToken = useAuthStore.getState().refreshToken;
+        if (!refreshToken) {
+          useAuthStore.getState().clearAuth();
+          window.location.href = '/login';
+          return Promise.reject(error);
+        }
+        const { data } = await apiClient.post('/api/v1/auth/refresh', { refreshToken });
         if (data.data?.accessToken) {
           useAuthStore.getState().setAccessToken(data.data.accessToken);
+          // 회전된 refreshToken 저장
+          if (data.data?.refreshToken) {
+            useAuthStore.setState({ refreshToken: data.data.refreshToken });
+          }
           originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
           return apiClient(originalRequest);
         }

@@ -138,3 +138,8 @@ class CompanyProfile(CamelModel):
     name: str
     talent_density: TalentDensity
     hiring_power: HiringPower
+    # DNA 기반 추가 메트릭 (0.0~1.0)
+    growth_score: float = 0.0
+    salary_competitiveness: float = 0.0
+    tech_diversity: float = 0.0
+    hiring_velocity: float = 0.0

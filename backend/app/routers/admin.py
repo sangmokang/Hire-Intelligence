@@ -184,6 +184,15 @@ def get_data_quality(
     )
 
 
+@router.get("/cache-stats", response_model=ApiResponse[dict])
+def get_cache_stats(
+    current_user: dict = Depends(require_super_admin),
+):
+    """인메모리 캐시 통계 조회 (SUPER_ADMIN 전용)"""
+    from app.services.cache import cache_service
+    return ApiResponse(data=cache_service.get_stats())
+
+
 @router.get("/crawl-status", response_model=ApiResponse[CrawlStatusResponse])
 def get_crawl_status(
     current_user: dict = Depends(require_super_admin),

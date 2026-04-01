@@ -31,6 +31,7 @@ from app.routers import auth, dashboard, me, admin
 from app.routers.subscription import router as subscription_router
 from app.routers.crawl import router as crawl_router
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.usage_tracker import UsageTrackerMiddleware
 from app.schemas.common import ApiError
 from app.scheduler import lifespan
 
@@ -54,6 +55,9 @@ app.add_middleware(
 
 # Rate Limiting 미들웨어
 app.add_middleware(RateLimitMiddleware)
+
+# 사용량 추적 미들웨어
+app.add_middleware(UsageTrackerMiddleware)
 
 
 # RFC 7807 Problem Details 기반 exception handler

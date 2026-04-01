@@ -48,6 +48,10 @@ async def weekly_crawl_job():
             crawl_run.total_parsed = stats.get("success", 0)
             db.commit()
             logger.info(f"주간 크롤+파싱 완료: {stats}")
+            # 크롤 완료 후 대시보드 캐시 무효화
+            from app.services.cache import cache_service as _cache
+            invalidated = _cache.invalidate_prefix("dashboard_")
+            logger.info(f"크롤 완료: 대시보드 캐시 무효화 {invalidated}건")
             # 크롤 성공 알림 전송
             import datetime as _dt
             _now = _dt.datetime.now(_dt.UTC)
@@ -127,6 +131,10 @@ async def weekly_dna_refresh_job():
         service = CompanyDnaService(db)
         result = service.refresh_all(week)
         logger.info(f"DNA refresh completed for {week}: {result}")
+        # DNA 갱신 완료 후 DNA 캐시 무효화
+        from app.services.cache import cache_service as _cache
+        invalidated = _cache.invalidate_prefix("dna_")
+        logger.info(f"DNA 갱신 완료: DNA 캐시 무효화 {invalidated}건")
         # 성공 시 재시도 카운트 초기화
         _dna_retry_counts.pop(week, None)
         # DNA 갱신 성공 알림 전송
@@ -135,6 +143,27 @@ async def weekly_dna_refresh_job():
         logger.error(f"DNA refresh failed: {e}")
         # 예외 발생 시 DNA 갱신 실패 알림 전송
         await notifier.send_dna_refresh_result(week=week, success=False, detail=str(e))
+    finally:
+        db.close()
+
+
+async def weekly_report_job():
+    """매주 월요일 07:00 KST — 주간 채용 트렌드 리포트 발송"""
+    from app.database import SessionLocal
+    from app.services.report_service import report_service
+
+    if SessionLocal is None:
+        logger.error("DATABASE_URL 미설정 — 주간 리포트 발송 건너뜀")
+        return
+
+    db = SessionLocal()
+    try:
+        logger.info("주간 리포트 발송 시작")
+        result = await report_service.send_weekly_reports(db)
+        logger.info(f"주간 리포트 발송 완료: {result}")
+    except Exception as e:
+        logger.error(f"주간 리포트 발송 실패: {e}")
+        await notifier.send(f":x: 주간 리포트 발송 실패 — {e}")
     finally:
         db.close()
 
@@ -159,6 +188,16 @@ def init_scheduler():
         replace_existing=True,
     )
     logger.info("DNA 갱신 스케줄 등록: 매주 월요일 05:00 KST")
+
+    # 매주 월요일 07:00 KST — 주간 리포트 발송 (크롤+DNA 갱신 완료 후 2시간 버퍼)
+    scheduler.add_job(
+        weekly_report_job,
+        CronTrigger(day_of_week="mon", hour=7, minute=0, timezone="Asia/Seoul"),
+        id="weekly_report",
+        name="주간 채용 트렌드 리포트 발송",
+        replace_existing=True,
+    )
+    logger.info("주간 리포트 스케줄 등록: 매주 월요일 07:00 KST")
 
 
 @asynccontextmanager

@@ -162,4 +162,9 @@ export interface CompanyProfile {
     weeklyTrend: number[];
   };
   talentFlow?: TalentFlow;
+  // DNA 기반 추가 메트릭 (0.0~1.0)
+  growthScore: number;
+  salaryCompetitiveness: number;
+  techDiversity: number;
+  hiringVelocity: number;
 }

@@ -1,6 +1,6 @@
 from sqlalchemy import String, DateTime, Integer, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from datetime import datetime, timezone
 import uuid
 import enum
@@ -70,6 +70,13 @@ class UserProfile(Base):
     delete_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     delete_scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     delete_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # 알림 설정 (weekly_report, hiring_alert 등)
+    notification_preferences: Mapped[dict | None] = mapped_column(
+        JSONB, nullable=True, default={"weekly_report": True, "hiring_alert": True}
+    )
+    # 사용량 통계 (일별 API 호출수, 뷰 접근 이력)
+    usage_stats: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict)
 
     # 로그인 이력
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
