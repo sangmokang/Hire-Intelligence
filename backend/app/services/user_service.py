@@ -10,7 +10,7 @@ class UserService:
     def __init__(self, db: Session):
         self.db = db
 
-    async def get_profile(self, user_id: str) -> UserProfile | None:
+    def get_profile(self, user_id: str) -> UserProfile | None:
         """사용자 프로필 조회"""
 
         try:
@@ -19,7 +19,7 @@ class UserService:
             return None
         return self.db.query(UserProfile).filter(UserProfile.id == uid).first()
 
-    async def update_profile(self, user_id: str, data: dict) -> UserProfile | None:
+    def update_profile(self, user_id: str, data: dict) -> UserProfile | None:
         """사용자 프로필 업데이트"""
 
         try:
@@ -41,7 +41,7 @@ class UserService:
         self.db.refresh(profile)
         return profile
 
-    async def upsert_on_login(
+    def upsert_on_login(
         self, user_id: str, email: str, provider: str, metadata: dict
     ) -> UserProfile:
         """로그인 시 프로필 생성 또는 업데이트 (첫 Google OAuth 사용자)"""

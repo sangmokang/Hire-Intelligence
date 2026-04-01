@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # 크롤러 설정
     CRAWL_DELAY_SECONDS: int = 2
 
+    # Resend 이메일 서비스 (Sprint 5 주간 리포트용)
+    RESEND_API_KEY: str | None = None
+    RESEND_FROM_EMAIL: str = "noreply@hire-intelligence.co.kr"
+
     model_config = {
         "env_file": _resolve_env_file(),
         "case_sensitive": True,

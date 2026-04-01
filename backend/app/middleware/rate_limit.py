@@ -1,8 +1,9 @@
-from fastapi import Request, HTTPException, status
+from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from app.schemas.common import ApiError
 import re
 
 # 엔드포인트별 rate limit 설정 (요청수/분)
@@ -27,7 +28,7 @@ def _get_limit_for_path(path: str) -> int:
 
 def _is_rate_limited(key: str, limit: int) -> tuple[bool, int]:
     """요청 카운트 확인 및 rate limit 초과 여부 반환"""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     window_start = now - timedelta(minutes=1)
 
     # 만료된 항목 제거
@@ -64,8 +65,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         limited, retry_after = _is_rate_limited(rate_key, limit)
         if limited:
+            error = ApiError(
+                type="about:blank",
+                title="Too Many Requests",
+                status=429,
+                detail=f"요청 한도를 초과했습니다. {retry_after}초 후 재시도하세요.",
+                instance=path,
+            )
             return Response(
-                content=f'{{"detail": "요청 한도를 초과했습니다. {retry_after}초 후 재시도하세요."}}',
+                content=error.model_dump_json(by_alias=True),
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 media_type="application/json",
                 headers={"Retry-After": str(retry_after)},

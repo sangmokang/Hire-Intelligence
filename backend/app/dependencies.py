@@ -69,7 +69,11 @@ async def get_optional_user(
     try:
         response = supabase.auth.get_user(credentials.credentials)
         if response.user:
-            return {"id": response.user.id, "email": response.user.email, "user": response.user}
+            user_id = response.user.id
+            profile = supabase.table("user_profiles").select("role, plan").eq("id", user_id).single().execute()
+            role = profile.data.get("role", "USER") if profile.data else "USER"
+            plan = (profile.data.get("plan") or "STARTER") if profile.data else "STARTER"
+            return {"id": user_id, "email": response.user.email, "role": role, "plan": plan, "user": response.user}
         return None
     except Exception:
         return None

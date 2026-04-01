@@ -27,7 +27,6 @@ def mock_user():
 
     app.dependency_overrides[get_current_user] = override
     yield user
-    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
@@ -40,7 +39,6 @@ def mock_pro_user():
 
     app.dependency_overrides[get_current_user] = override
     yield user
-    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
@@ -53,7 +51,6 @@ def mock_admin():
 
     app.dependency_overrides[get_current_user] = override
     yield user
-    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
@@ -74,7 +71,6 @@ def mock_db():
 
     app.dependency_overrides[get_db] = lambda: db
     yield db
-    app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture
@@ -92,7 +88,6 @@ def mock_supabase():
 
     app.dependency_overrides[get_supabase_client] = lambda: mock
     yield mock
-    app.dependency_overrides.pop(get_supabase_client, None)
 
 
 @pytest.fixture

@@ -18,7 +18,8 @@ def test_admin_users_regular_user(mock_user):
     assert response.status_code == 403
 
 
-def test_admin_users_super_admin(mock_admin):
+def test_admin_users_super_admin(mock_admin, mock_supabase):
     """SUPER_ADMIN — /admin/users → 200"""
+    mock_supabase.table.return_value.select.return_value.limit.return_value.order.return_value.execute.return_value.data = []
     response = client.get("/api/v1/admin/users")
     assert response.status_code == 200

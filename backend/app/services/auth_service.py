@@ -8,7 +8,7 @@ class AuthService:
     def __init__(self, supabase: Client):
         self.supabase = supabase
 
-    async def sign_up(self, email: str, password: str) -> dict:
+    def sign_up(self, email: str, password: str) -> dict:
         """회원가입"""
         try:
             response = self.supabase.auth.sign_up({"email": email, "password": password})
@@ -20,7 +20,7 @@ class AuthService:
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    async def sign_in(self, email: str, password: str) -> dict:
+    def sign_in(self, email: str, password: str) -> dict:
         """로그인"""
         try:
             response = self.supabase.auth.sign_in_with_password(
@@ -34,7 +34,7 @@ class AuthService:
         except Exception as e:
             raise HTTPException(status_code=401, detail="로그인에 실패했습니다.")
 
-    async def get_user(self, token: str) -> dict:
+    def get_user(self, token: str) -> dict:
         """토큰으로 사용자 정보 조회"""
         try:
             response = self.supabase.auth.get_user(token)
@@ -46,7 +46,7 @@ class AuthService:
         except Exception:
             raise HTTPException(status_code=401, detail="토큰 검증에 실패했습니다.")
 
-    async def refresh_session(self, refresh_token: str) -> dict:
+    def refresh_session(self, refresh_token: str) -> dict:
         """세션 갱신"""
         try:
             response = self.supabase.auth.refresh_session(refresh_token)

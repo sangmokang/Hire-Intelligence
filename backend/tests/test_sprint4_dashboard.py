@@ -257,8 +257,9 @@ class TestAdminEndpoints:
         assert "nextScheduled" in data
         assert data["nextScheduled"] == "매주 월요일 03:00 KST"
 
-    def test_admin_users_returns_success(self, admin_client: TestClient):
+    def test_admin_users_returns_success(self, admin_client: TestClient, mock_supabase):
         """SUPER_ADMIN → /admin/users → 200"""
+        mock_supabase.table.return_value.select.return_value.limit.return_value.order.return_value.execute.return_value.data = []
         resp = admin_client.get("/api/v1/admin/users")
         assert resp.status_code == 200
         body = resp.json()
