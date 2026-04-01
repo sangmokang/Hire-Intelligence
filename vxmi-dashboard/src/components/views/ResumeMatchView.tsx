@@ -32,8 +32,9 @@ export function ResumeMatchView() {
 
   return (
     <ErrorBoundary>
-      <div>
-        <p className="text-sm text-gray-500 mb-3">
+      <div className="p-6">
+        <h1 className="text-lg font-semibold text-gray-900 mb-1">이력서 매칭</h1>
+        <p className="text-sm text-gray-500 mb-4">
           이력서 또는 주요 스킬을 붙여넣으세요
         </p>
         <textarea

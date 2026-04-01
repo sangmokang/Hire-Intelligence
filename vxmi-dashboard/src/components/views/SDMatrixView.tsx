@@ -63,7 +63,9 @@ export function SDMatrixView() {
 
   const activeData: EnrichedSDItem[] = useMemo(() => {
     if (!response?.data) return []
-    return enrichWithColor(response.data)
+    // MSW/백엔드 응답: { summary, segments } 또는 직접 배열
+    const items = Array.isArray(response.data) ? response.data : (response.data as Record<string, unknown>).segments as SDMatrixItem[] | undefined;
+    return items ? enrichWithColor(items) : []
   }, [response])
 
   const tableSegments = useMemo(() => activeData.map(toTableSegment), [activeData])

@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, distinct
 from sqlalchemy.orm import Session
 
+from supabase import Client
+
 from app.database import get_db
+from app.dependencies import get_supabase_client
 from app.middleware.rbac import require_super_admin
 from app.schemas.admin import AnomalyItem, CrawlStatusResponse, DataQualityResponse, WeeklyCollectionStats
 from app.schemas.common import ApiResponse
@@ -13,20 +16,40 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/users", response_model=ApiResponse[list])
-async def list_users(current_user: dict = Depends(require_super_admin)):
+async def list_users(
+    current_user: dict = Depends(require_super_admin),
+    supabase: Client = Depends(get_supabase_client),
+):
     """전체 사용자 목록 (관리자 전용)"""
-    # TODO: DB 연동 후 실제 구현
-    return ApiResponse(data=[], message="사용자 목록")
+    result = (
+        supabase.table("user_profiles")
+        .select(
+            "id, email, name, phone, company, job_title, profile_image_url, "
+            "role, category, status, plan, organization_id, last_login_at, login_count, created_at"
+        )
+        .limit(100)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return ApiResponse(data=result.data or [], message="사용자 목록")
 
 
 @router.get("/stats", response_model=ApiResponse[dict])
-async def get_stats(current_user: dict = Depends(require_super_admin)):
+async def get_stats(
+    current_user: dict = Depends(require_super_admin),
+    supabase: Client = Depends(get_supabase_client),
+):
     """플랫폼 통계 (관리자 전용)"""
+    all_users = supabase.table("user_profiles").select("status, organization_id").execute()
+    rows = all_users.data or []
+    total_users = len(rows)
+    active_users = sum(1 for r in rows if r.get("status") == "ACTIVE")
+    org_ids = {r.get("organization_id") for r in rows if r.get("organization_id")}
     return ApiResponse(
         data={
-            "total_users": 0,
-            "active_users": 0,
-            "total_organizations": 0,
+            "totalUsers": total_users,
+            "activeUsers": active_users,
+            "totalOrganizations": len(org_ids),
         }
     )
 

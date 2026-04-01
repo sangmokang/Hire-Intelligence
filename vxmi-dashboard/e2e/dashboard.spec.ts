@@ -29,6 +29,7 @@ test.describe('Dashboard Navigation', () => {
   });
 
   test('should show role-based menu items', async ({ page }) => {
-    await expect(page.getByText('분석')).toBeVisible();
+    // 사이드바 섹션 헤더가 표시되는지 확인 (exact match로 다른 '분석' 포함 텍스트 제외)
+    await expect(page.getByText('분석', { exact: true })).toBeVisible();
   });
 });

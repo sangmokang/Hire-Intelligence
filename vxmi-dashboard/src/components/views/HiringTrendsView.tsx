@@ -219,11 +219,6 @@ export function HiringTrendsView() {
           </div>
 
           {/* Date filter notice */}
-          {dateFilterActive && (
-            <p className="mt-2 text-xs text-gray-400">
-              * 기간 필터는 백엔드 연동 후 활성화됩니다
-            </p>
-          )}
 
           {/* Matched segment badges */}
           {activeKeyword && matchedSegmentIds.length > 0 && (

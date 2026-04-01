@@ -225,7 +225,7 @@ export function AdminDataView() {
       {crawlLoading && <CrawlStatusSkeleton />}
       {crawlError && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <p className="text-sm text-red-500">크롤 상태를 불러오지 못했습니다: {(crawlError as Error).message}</p>
+          <p className="text-sm text-red-500">크롤 상태를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>
         </div>
       )}
       {crawlData && <CrawlStatusCard data={crawlData} />}
@@ -234,7 +234,7 @@ export function AdminDataView() {
       {qualityLoading && <WeeklyStatsSkeleton />}
       {qualityError && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <p className="text-sm text-red-500">데이터 품질 정보를 불러오지 못했습니다: {(qualityError as Error).message}</p>
+          <p className="text-sm text-red-500">데이터 품질 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>
         </div>
       )}
       {qualityData && (

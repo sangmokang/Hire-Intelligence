@@ -30,24 +30,12 @@ test.describe('Authentication Flow', () => {
   });
 
   test('E2E-A01: should show error on invalid credentials', async ({ page }) => {
-    // Supabase 인증 실패 mock
-    await page.route('**/auth/v1/token**', async (route) => {
-      await route.fulfill({
-        status: 400,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          error: 'invalid_grant',
-          error_description: 'Invalid login credentials',
-        }),
-      });
-    });
+    // MSW가 /api/v1/auth/login을 가로채서 잘못된 자격증명에 대해 401 반환
     await page.goto('/login');
     await page.getByPlaceholder('이메일 주소').fill('wrong@example.com');
     await page.getByPlaceholder('비밀번호').fill('Wrongpass1');
     await page.getByRole('button', { name: '이메일로 로그인' }).click();
-    // LoginPage catches error: err.message → setError('root', { message })
-    // Supabase throws with error_description as message
-    await expect(page.getByText(/올바르지 않|실패|오류|Invalid|invalid/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/올바르지 않|실패|오류/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('E2E-A02: should show register page with required fields', async ({ page }) => {

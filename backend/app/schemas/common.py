@@ -34,11 +34,10 @@ class ApiError(CamelModel):
 
 class OffsetPagination(CamelModel):
     """오프셋 기반 페이지네이션"""
-    total: int
     page: int
-    page_size: int
-    has_next: bool
-    has_prev: bool
+    limit: int
+    total_items: int
+    total_pages: int
 
 
 class PaginatedResponse(CamelModel, Generic[T]):
@@ -50,7 +49,7 @@ class PaginatedResponse(CamelModel, Generic[T]):
 
 class CursorPagination(CamelModel):
     """커서 기반 페이지네이션"""
+    cursor: str | None = None
     next_cursor: str | None = None
-    prev_cursor: str | None = None
-    has_next: bool = False
+    has_more: bool = False
     limit: int = 20

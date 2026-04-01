@@ -10,6 +10,8 @@ export interface SDMatrixItem {
   sdRatio: number;
   otwPct: number;
   quadrant: 'OPPORTUNITY' | 'COMPETITIVE' | 'OVERSUPPLY' | 'NICHE';
+  avgSalary: number | null;
+  trend?: 'up' | 'down' | 'stable';
 }
 
 // 기업 채용 순위

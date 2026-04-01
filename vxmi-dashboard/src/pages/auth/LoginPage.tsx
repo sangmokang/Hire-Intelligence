@@ -9,6 +9,7 @@ import logo from '../../assets/logo.svg';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const login = useAuthStore((s) => s.login);
 
   const {
     register,
@@ -22,29 +23,14 @@ export default function LoginPage() {
 
   async function onSubmit(values: LoginFormData) {
     try {
-      const { session, user } = await authService.signIn(values.email, values.password);
-      if (session && user) {
-        // Populate Zustand store with Supabase session data
-        useAuthStore.getState().setAccessToken(session.access_token);
-        useAuthStore.getState().setUser({
-          id: user.id,
-          email: user.email ?? '',
-          name: user.user_metadata?.name ?? user.email ?? '',
-          role: 'USER',
-          category: user.user_metadata?.category ?? 'JOB_SEEKER',
-          plan: 'STARTER',
-          track: 'BUSINESS',
-          status: 'ACTIVE',
-          authProvider: 'EMAIL',
-          createdAt: user.created_at,
-        });
-        // 로그인 성공 이벤트 GA4 전송
-        trackEvent('Auth', 'login_success', 'email');
-        navigate('/dashboard');
-      }
+      await login({ email: values.email, password: values.password });
+      trackEvent('Auth', 'login_success', 'email');
+      navigate('/dashboard');
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : '로그인에 실패했습니다. 다시 시도해주세요.';
+      // authStore가 이미 error state에 파싱된 메시지를 저장함
+      const storeError = useAuthStore.getState().error;
+      const message = storeError
+        || (err instanceof Error ? err.message : '로그인에 실패했습니다. 다시 시도해주세요.');
       setError('root', { message });
     }
   }

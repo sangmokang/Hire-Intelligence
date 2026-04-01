@@ -1,5 +1,9 @@
+import { useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
+import { apiClient } from '../../services/apiClient';
 import type { BusinessPlan } from '../../types/auth';
+
+const PLAN_ORDER: BusinessPlan[] = ['STARTER', 'PRO', 'ENTERPRISE'];
 
 interface Plan {
   id: BusinessPlan;
@@ -53,15 +57,46 @@ const PLANS: Plan[] = [
 ];
 
 export default function PlansPage() {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
+  const [upgradingPlan, setUpgradingPlan] = useState<BusinessPlan | null>(null);
 
-  const handleUpgrade = (_planId: BusinessPlan) => {
-    // TODO: 결제 연동 후 _planId 사용 예정
-    void _planId;
-    alert('준비 중입니다. 곧 오픈 예정입니다.');
+  const currentPlan = user?.plan as BusinessPlan | undefined;
+
+  const isDowngrade = (targetPlan: BusinessPlan): boolean => {
+    if (!currentPlan) return false;
+    const currentIdx = PLAN_ORDER.indexOf(currentPlan as BusinessPlan);
+    if (currentIdx === -1) return false; // TALENT 트랙 사용자는 다운그레이드 판정 제외
+    const targetIdx = PLAN_ORDER.indexOf(targetPlan);
+    return targetIdx < currentIdx;
   };
 
-  const currentPlan = user?.plan;
+  const handleUpgrade = async (planId: BusinessPlan) => {
+    if (isDowngrade(planId)) {
+      alert('다운그레이드는 지원하지 않습니다. 고객센터에 문의해 주세요.');
+      return;
+    }
+
+    setUpgradingPlan(planId);
+    try {
+      const response = await apiClient.post<{
+        status: string;
+        data: { id: string; plan: BusinessPlan; status: string; startedAt: string; expiresAt: string };
+        message: string;
+      }>('/api/v1/subscriptions/upgrade', { plan: planId });
+
+      if (user) {
+        setUser({ ...user, plan: response.data.data.plan });
+      }
+
+      alert(response.data.message ?? `플랜이 ${planId}으로 변경되었습니다.`);
+    } catch (err: unknown) {
+      const axiosData = (err as { response?: { data?: { detail?: string } } })?.response?.data;
+      const message = axiosData?.detail || '플랜 변경에 실패했습니다. 다시 시도해 주세요.';
+      alert(message);
+    } finally {
+      setUpgradingPlan(null);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
@@ -114,15 +149,19 @@ export default function PlansPage() {
               </ul>
 
               <button
-                onClick={() => handleUpgrade(plan.id)}
-                disabled={isCurrent}
+                onClick={() => void handleUpgrade(plan.id)}
+                disabled={isCurrent || upgradingPlan !== null || isDowngrade(plan.id)}
                 className={`w-full py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isCurrent
+                  isCurrent || isDowngrade(plan.id)
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-gray-900 text-white hover:bg-gray-700'
+                    : 'bg-gray-900 text-white hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed'
                 }`}
               >
-                {isCurrent ? '현재 플랜' : '업그레이드'}
+                {upgradingPlan === plan.id
+                  ? '처리 중...'
+                  : isCurrent
+                  ? '현재 플랜'
+                  : '업그레이드'}
               </button>
             </div>
           );

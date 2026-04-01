@@ -27,43 +27,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   login: async (credentials) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const { data } = await apiClient.post('/api/v1/auth/login', credentials);
       set({
         user: data.data.user,
         accessToken: data.data.accessToken,
         isAuthenticated: true,
-        isLoading: false,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message :
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '로그인에 실패했습니다.';
-      set({
-        error: message,
-        isLoading: false,
-      });
+      // AxiosError 응답에서 서버 메시지를 우선 추출
+      const axiosData = (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })?.response?.data;
+      const message = axiosData?.error?.message || axiosData?.detail
+        || (err instanceof Error ? err.message : '로그인에 실패했습니다.');
+      set({ error: message });
       throw err;
     }
   },
 
   register: async (data) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const { data: res } = await apiClient.post('/api/v1/auth/signup', data);
       set({
         user: res.data.user,
         accessToken: res.data.accessToken,
         isAuthenticated: true,
-        isLoading: false,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message :
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '회원가입에 실패했습니다.';
-      set({
-        error: message,
-        isLoading: false,
-      });
+      const axiosData = (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })?.response?.data;
+      const message = axiosData?.error?.message || axiosData?.detail
+        || (err instanceof Error ? err.message : '회원가입에 실패했습니다.');
+      set({ error: message });
       throw err;
     }
   },

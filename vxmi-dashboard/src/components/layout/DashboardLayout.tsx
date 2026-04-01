@@ -374,8 +374,8 @@ export function DashboardLayout() {
             <div className="relative group">
               <button className="flex items-center gap-2 p-1.5 rounded-md hover:bg-gray-100 transition-colors">
                 <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-700 overflow-hidden">
-                  {user.profileImage ? (
-                    <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                  {user.profileImageUrl ? (
+                    <img src={user.profileImageUrl} alt={user.name} className="w-full h-full object-cover" />
                   ) : (
                     user.name.charAt(0).toUpperCase()
                   )}

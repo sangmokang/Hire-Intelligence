@@ -508,10 +508,10 @@ Returns deep analysis profile for a single company.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `salaryAvg` | `number` | Average salary (만원) |
-| `salaryMin` | `number` | Minimum salary (만원) |
-| `salaryMax` | `number` | Maximum salary (만원) |
-| `positionPercentile` | `number` | Percentile rank within segment |
+| `salaryAvg` | `number \| null` | Average salary (만원) |
+| `salaryMin` | `number \| null` | Minimum salary (만원) |
+| `salaryMax` | `number \| null` | Maximum salary (만원) |
+| `positionPercentile` | `number \| null` | Percentile rank within segment |
 | `positionLabel` | `string` | Human-readable percentile label |
 | `equityRatio` | `number` | Ratio of postings mentioning equity |
 | `benefitsCount` | `number` | Total distinct benefits offered |
@@ -567,3 +567,193 @@ Returns deep analysis profile for a single company.
 | `avgSalary` | `number` | Average salary in segment (만원) |
 | `avgCultureScore` | `number` | Average culture score (0–100) |
 | `companyCount` | `number` | Number of companies in benchmark |
+
+---
+
+### GET /api/v1/dashboard/company-dna/{company_id}/trend
+
+**Auth**: PRO+
+**Description**: 기업 DNA 트렌드 — 주차별 DNA 점수 변화
+
+**Path Parameters**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `company_id` | `string` | Company identifier (UUID) |
+
+**Query Parameters**
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `weeks` | `number` | No | `12` | Number of weeks |
+
+**Response**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "companyId": "uuid",
+    "companyName": "카카오",
+    "segmentId": "dev_server",
+    "dataPoints": [
+      {
+        "week": "2026-W10",
+        "overallScore": 75.0,
+        "techScore": 70.0,
+        "hiringScore": 80.0,
+        "salaryPct": 65.0,
+        "cultureScore": 72.0
+      }
+    ]
+  }
+}
+```
+
+**DnaTrendResponse DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `companyId` | `string` | Company identifier |
+| `companyName` | `string` | Company display name |
+| `segmentId` | `string \| null` | Primary segment ID |
+| `dataPoints` | `DnaTrendPoint[]` | Weekly DNA score data |
+
+**DnaTrendPoint DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `week` | `string` | ISO week string |
+| `overallScore` | `number` | Composite DNA score |
+| `techScore` | `number` | Tech axis score |
+| `hiringScore` | `number` | Hiring axis score |
+| `salaryPct` | `number \| null` | Salary percentile |
+| `cultureScore` | `number` | Culture axis score |
+
+---
+
+### GET /api/v1/dashboard/company-dna/compare
+
+**Auth**: PRO+
+**Description**: 두 기업 DNA 비교
+
+**Query Parameters**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `companyA` | `string` | Yes | First company ID |
+| `companyB` | `string` | Yes | Second company ID |
+
+**Response**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "companyA": { "...CompanyDnaProfile..." },
+    "companyB": { "...CompanyDnaProfile..." },
+    "segmentBenchmark": { "...SegmentBenchmark or null..." }
+  }
+}
+```
+
+**DnaComparisonResponse DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `companyA` | `CompanyDnaProfile` | First company DNA profile |
+| `companyB` | `CompanyDnaProfile` | Second company DNA profile |
+| `segmentBenchmark` | `SegmentBenchmark \| null` | Segment average for comparison |
+
+---
+
+### Admin / Monitoring Endpoints
+
+### GET /api/v1/admin/data-quality
+
+**Auth**: SUPER_ADMIN
+**Description**: 데이터 품질 모니터링 — 주간 수집 통계 및 이상치 감지
+
+**Response**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "currentWeek": "2026-W13",
+    "weeklyStats": [
+      {
+        "week": "2026-W13",
+        "totalPostings": 9900,
+        "totalCompanies": 450,
+        "segmentsCovered": 14,
+        "segmentsTotal": 14
+      }
+    ],
+    "missingSegments": [],
+    "anomalies": []
+  }
+}
+```
+
+**DataQualityResponse DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `currentWeek` | `string` | Current ISO week |
+| `weeklyStats` | `WeeklyCollectionStats[]` | Recent 4 weeks collection stats |
+| `missingSegments` | `string[]` | Segments with no data this week |
+| `anomalies` | `AnomalyItem[]` | Items with ±50% week-over-week change |
+
+### GET /api/v1/admin/crawl-status
+
+**Auth**: SUPER_ADMIN
+**Description**: 크롤러 실행 상태 조회
+
+**Response**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "lastCrawlAt": "2026-03-28T02:00:00Z",
+    "lastCrawlStatus": "completed",
+    "totalCrawled": 9900,
+    "totalParsed": 9850,
+    "nextScheduled": "매주 월요일 02:00 KST"
+  }
+}
+```
+
+### Pagination DTOs
+
+**OffsetPagination DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `page` | `number` | Current page number |
+| `limit` | `number` | Items per page |
+| `totalItems` | `number` | Total item count |
+| `totalPages` | `number` | Total page count |
+
+**CursorPagination DTO**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cursor` | `string \| null` | Current cursor position |
+| `nextCursor` | `string \| null` | Next page cursor |
+| `hasMore` | `boolean` | Whether more results exist |
+| `limit` | `number` | Items per page |
+
+---
+
+### CompensationAxis Nullable Fields
+
+> **Note**: `CompensationAxis` DTO의 `salaryAvg`, `salaryMin`, `salaryMax`, `positionPercentile` 필드는 데이터가 없을 경우 `null`을 반환합니다.
+
+| Field | Type | Nullable | Description |
+|-------|------|----------|-------------|
+| `salaryAvg` | `number \| null` | Yes | Average salary (만원) |
+| `salaryMin` | `number \| null` | Yes | Minimum salary (만원) |
+| `salaryMax` | `number \| null` | Yes | Maximum salary (만원) |
+| `positionPercentile` | `number \| null` | Yes | Percentile rank |

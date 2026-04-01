@@ -29,7 +29,7 @@ class AuthResponse(CamelModel):
     """인증 응답 (토큰 + 사용자 정보)"""
     access_token: str
     refresh_token: str | None = None
-    user: dict  # Supabase User 객체
+    user: dict  # TODO: Supabase User 원본 → UserProfileResponse 타입 전환 필요
 
 
 class RefreshRequest(CamelModel):

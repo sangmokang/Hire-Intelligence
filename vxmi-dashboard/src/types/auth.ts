@@ -16,7 +16,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  profileImage?: string;
+  profileImageUrl?: string;
   role: UserRole;
   category: UserCategory;
   plan: PlanType;

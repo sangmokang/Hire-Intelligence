@@ -2,7 +2,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, type RegisterFormData } from '../../lib/validations';
-import { authService } from '../../services/authService';
 import { useAuthStore } from '../../stores/authStore';
 import logo from '../../assets/logo.svg';
 import type { UserCategory } from '../../types/auth';
@@ -34,28 +33,18 @@ export default function RegisterPage() {
 
   async function onSubmit(values: RegisterFormData) {
     try {
-      // Try Supabase auth first
-      await authService.signUp(values.email, values.password, {
+      await storeRegister({
         name: values.name,
+        email: values.email,
+        password: values.password,
         category: values.category,
+        company: values.company,
       });
       navigate('/dashboard');
-    } catch {
-      // Fallback to store register (mock/backend)
-      try {
-        await storeRegister({
-          name: values.name,
-          email: values.email,
-          password: values.password,
-          category: values.category,
-          company: values.company,
-        });
-        navigate('/dashboard');
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : '회원가입에 실패했습니다. 다시 시도해주세요.';
-        setError('root', { message });
-      }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : '회원가입에 실패했습니다. 다시 시도해주세요.';
+      setError('root', { message });
     }
   }
 

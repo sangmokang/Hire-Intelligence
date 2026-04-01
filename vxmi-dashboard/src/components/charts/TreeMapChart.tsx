@@ -183,7 +183,7 @@ function TileLabel({ rect, isCompany }: { rect: LayoutRect; isCompany: boolean }
   return (
     <div className="absolute inset-0 flex flex-col items-start justify-start p-3 pointer-events-none select-none overflow-hidden">
       <span
-        className="font-semibold leading-tight"
+        className="font-semibold leading-tight max-w-full truncate"
         style={{
           fontSize: rect.w < 110 ? '12px' : '14px',
           color: 'rgba(0,0,0,0.8)',

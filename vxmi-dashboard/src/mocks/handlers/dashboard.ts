@@ -11,6 +11,7 @@ const MOCK_SEGMENTS: SDMatrixItem[] = [
     sdRatio: 1.78,
     otwPct: 0.42,
     quadrant: 'OPPORTUNITY',
+    avgSalary: null,
   },
   {
     segmentId: 'seg-002',
@@ -20,6 +21,7 @@ const MOCK_SEGMENTS: SDMatrixItem[] = [
     sdRatio: 0.89,
     otwPct: 0.31,
     quadrant: 'OVERSUPPLY',
+    avgSalary: null,
   },
   {
     segmentId: 'seg-003',
@@ -29,6 +31,7 @@ const MOCK_SEGMENTS: SDMatrixItem[] = [
     sdRatio: 2.98,
     otwPct: 0.67,
     quadrant: 'OPPORTUNITY',
+    avgSalary: null,
   },
   {
     segmentId: 'seg-004',
@@ -38,6 +41,7 @@ const MOCK_SEGMENTS: SDMatrixItem[] = [
     sdRatio: 1.13,
     otwPct: 0.38,
     quadrant: 'COMPETITIVE',
+    avgSalary: null,
   },
   {
     segmentId: 'seg-005',
@@ -47,6 +51,7 @@ const MOCK_SEGMENTS: SDMatrixItem[] = [
     sdRatio: 2.41,
     otwPct: 0.55,
     quadrant: 'OPPORTUNITY',
+    avgSalary: null,
   },
   {
     segmentId: 'seg-006',
@@ -56,6 +61,7 @@ const MOCK_SEGMENTS: SDMatrixItem[] = [
     sdRatio: 0.94,
     otwPct: 0.28,
     quadrant: 'NICHE',
+    avgSalary: null,
   },
   {
     segmentId: 'seg-007',
@@ -65,6 +71,7 @@ const MOCK_SEGMENTS: SDMatrixItem[] = [
     sdRatio: 1.06,
     otwPct: 0.29,
     quadrant: 'COMPETITIVE',
+    avgSalary: null,
   },
   {
     segmentId: 'seg-008',
@@ -74,6 +81,7 @@ const MOCK_SEGMENTS: SDMatrixItem[] = [
     sdRatio: 2.91,
     otwPct: 0.61,
     quadrant: 'OPPORTUNITY',
+    avgSalary: null,
   },
 ];
 
