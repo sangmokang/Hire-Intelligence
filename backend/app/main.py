@@ -31,6 +31,9 @@ from app.routers import auth, dashboard, me, admin
 from app.routers.subscription import router as subscription_router
 from app.routers.crawl import router as crawl_router
 from app.routers.payment import router as payment_router
+from app.routers.action_panel import router as action_panel_router
+from app.routers.opp_alert import router as opp_alert_router
+from app.routers.candidate_profiler import router as candidate_profiler_router
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.usage_tracker import UsageTrackerMiddleware
 from app.schemas.common import ApiError
@@ -125,6 +128,9 @@ app.include_router(admin.router, prefix=API_PREFIX)
 app.include_router(subscription_router, prefix=API_PREFIX)
 app.include_router(crawl_router, prefix=API_PREFIX)
 app.include_router(payment_router, prefix=API_PREFIX)
+app.include_router(action_panel_router, prefix=API_PREFIX)
+app.include_router(opp_alert_router, prefix=API_PREFIX)
+app.include_router(candidate_profiler_router, prefix=API_PREFIX)
 
 
 @app.get("/health", tags=["health"])

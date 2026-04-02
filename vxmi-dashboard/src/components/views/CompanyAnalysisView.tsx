@@ -15,6 +15,7 @@ import { useCompanyAnalysis } from '../../hooks/useDashboard'
 import { SparkBars } from '../common/SparkBars'
 import { TalentFlowChart } from '../common/TalentFlowChart'
 import { ActionPanelLayout } from '../common/ActionPanelLayout'
+import { useActionPanel } from '../../hooks/useActionPanel'
 import type { TalentFlow, CompanyProfile } from '../../types/dashboard'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { CardSkeleton } from '../common/LoadingSkeleton'
@@ -83,6 +84,9 @@ function HiringVelocitySparkLine({ trend, velocity }: { trend: number[]; velocit
 }
 
 export function CompanyAnalysisView() {
+  // ActionPanel — BE API 연동 (Hook 규칙: 컴포넌트 최상단)
+  const panelProps = useActionPanel('company-analysis')
+
   const [selectedCompany, setSelectedCompany] = useState('토스')
   const [inputVal, setInputVal] = useState('')
   const navigate = useNavigate()
@@ -90,20 +94,6 @@ export function CompanyAnalysisView() {
   const { data: response, isLoading, error } = useCompanyAnalysis(selectedCompany)
 
   const profile = response?.data ?? null
-
-  // ActionPanel 데이터 — rule-based 인사이트 및 추천 액션
-  const panelProps = {
-    insight: '기업의 인재밀도와 채용파워 지수를 통해 채용 전략을 수립할 수 있습니다.',
-    actions: [
-      { priority: 'HIGH' as const, text: '인재밀도가 높은 기업은 타겟 소싱 대상입니다' },
-      { priority: 'MEDIUM' as const, text: '채용파워 지수가 급등하는 기업의 JD를 분석하세요' },
-    ],
-    relatedViews: [
-      { label: '시계열 인텔리전스', path: '/dashboard/timeline' },
-      { label: '수요공급 매트릭스', path: '/dashboard/sd-matrix' },
-    ],
-    isLocked: false,
-  }
 
   return (
     <ActionPanelLayout panel={panelProps}>

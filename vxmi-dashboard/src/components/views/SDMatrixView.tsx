@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import { ChartSkeleton, CardSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
 import { ActionPanelLayout } from '../common/ActionPanelLayout'
+import { useActionPanel } from '../../hooks/useActionPanel'
 import type { SDMatrixItem } from '../../types/dashboard'
 
 type ViewMode = 'segment' | 'industry'
@@ -57,6 +58,11 @@ export function SDMatrixView() {
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null)
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null)
   const [drillSegment, setDrillSegment] = useState<string | null>(null)
+
+  // ActionPanel — BE API 연동 (Hook 규칙: 컴포넌트 최상단)
+  const panelProps = useActionPanel('sd-matrix', {
+    selectedSegment: selectedSegmentId ?? undefined,
+  })
 
   const { data: drilldownResponse, isLoading: drilldownLoading } = useSDMatrixDrilldown(selectedSegmentId)
 
@@ -153,20 +159,6 @@ export function SDMatrixView() {
 
   if (activeData.length === 0) {
     return <EmptyState title="S/D 매트릭스 데이터가 없습니다" description="수집된 세그먼트 데이터가 없습니다." />
-  }
-
-  // ActionPanel 데이터 — rule-based 인사이트 및 추천 액션
-  const panelProps = {
-    insight: '기회지대(고수요/저공급) 세그먼트가 영업 타겟 1순위입니다.',
-    actions: [
-      { priority: 'HIGH' as const, text: '기회지대 세그먼트의 기업 리스트를 확인하세요' },
-      { priority: 'MEDIUM' as const, text: '과잉공급 구간은 후보자 시장이므로 소싱 전략을 조정하세요' },
-    ],
-    relatedViews: [
-      { label: 'Top 채용 볼륨', path: '/dashboard/top-companies' },
-      { label: '채용 트렌드', path: '/dashboard/trends' },
-    ],
-    isLocked: false,
   }
 
   return (

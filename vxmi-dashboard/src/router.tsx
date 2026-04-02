@@ -33,6 +33,10 @@ import { CompanyCompareView } from './components/views/CompanyCompareView';
 import { AdminDataView } from './components/views/AdminDataView';
 import { MarketSignalsView } from './components/views/MarketSignalsView';
 
+// Sprint 7 views - lazy loaded
+const OppAlertView = lazy(() => import('./components/views/OppAlertView').then(m => ({ default: m.OppAlertView })));
+const CandidateProfilerView = lazy(() => import('./components/views/CandidateProfilerView').then(m => ({ default: m.CandidateProfilerView })));
+
 // Admin views - lazy loaded
 const AdminUsersView = lazy(() => import('./components/views/AdminUsersView').then(m => ({ default: m.AdminUsersView })));
 const AdminUserDetailView = lazy(() => import('./components/views/AdminUserDetailView').then(m => ({ default: m.AdminUserDetailView })));
@@ -95,6 +99,8 @@ export const router = createBrowserRouter([
       { path: '/dashboard/top-companies', element: <TopCompaniesView /> },
       { path: '/dashboard/sd-matrix', element: <SDMatrixView /> },
       { path: '/dashboard/market-signals', element: <MarketSignalsView /> },
+      { path: '/dashboard/opp-alert', element: <Suspense fallback={null}><OppAlertView /></Suspense> },
+      { path: '/dashboard/candidate-profiler', element: <Suspense fallback={null}><CandidateProfilerView /></Suspense> },
       { path: '/dashboard/timeline', element: (
         <PlanGuard requiredPlan="PRO">
           <CompanyTimelineView />

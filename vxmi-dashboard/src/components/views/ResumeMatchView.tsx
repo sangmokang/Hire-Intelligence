@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useResumeMatch } from '../../hooks/useDashboard'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { ActionPanelLayout } from '../common/ActionPanelLayout'
+import { useActionPanel } from '../../hooks/useActionPanel'
 
 const SAMPLE_RESUME = `Java, Kotlin, Spring Boot, Spring Batch, MSA, Kafka, Redis, MySQL, AWS (EKS, RDS, S3)
 핀테크 도메인 5년 경력
@@ -21,6 +22,9 @@ const SCORE_COLORS: Record<string, string> = {
 const DEFAULT_SCORE_COLOR = '#888780'
 
 export function ResumeMatchView() {
+  // ActionPanel — BE API 연동 (Hook 규칙: 컴포넌트 최상단)
+  const panelProps = useActionPanel('resume-match')
+
   const [resumeText, setResumeText] = useState('')
   const { mutate, data: response, isPending, error } = useResumeMatch()
 
@@ -29,20 +33,6 @@ export function ResumeMatchView() {
   const handleMatch = () => {
     if (!resumeText.trim()) return
     mutate({ resumeText })
-  }
-
-  // ActionPanel 데이터 — rule-based 인사이트 및 추천 액션
-  const panelProps = {
-    insight: '이력서 키워드 매칭으로 최적의 포지션-후보자 연결을 찾을 수 있습니다.',
-    actions: [
-      { priority: 'MEDIUM' as const, text: '매칭 점수 80점 이상 결과에 우선 집중하세요' },
-      { priority: 'LOW' as const, text: '추출된 키워드로 JD를 최적화하세요' },
-    ],
-    relatedViews: [
-      { label: '기업 분석', path: '/dashboard/company-analysis' },
-      { label: 'Top 채용 볼륨', path: '/dashboard/top-companies' },
-    ],
-    isLocked: false,
   }
 
   return (

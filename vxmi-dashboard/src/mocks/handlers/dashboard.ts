@@ -218,7 +218,40 @@ const MOCK_TRENDS: SegmentTrend[] = MOCK_SEGMENTS.slice(0, 5).map(seg => ({
   })),
 }));
 
+// Action Panel 요청 바디 타입
+interface ActionPanelRequestBody {
+  view: string;
+  context?: { userCategory?: string; [key: string]: unknown };
+}
+
 export const dashboardHandlers = [
+  // Action Panel (POST)
+  http.post('/api/v1/action-panel', async ({ request }) => {
+    await delay(150);
+    const body = await request.json() as ActionPanelRequestBody;
+    return HttpResponse.json({
+      status: 'success',
+      data: {
+        insight: `${body.view} 뷰 분석 결과입니다. 현재 시장 상황을 확인하세요.`,
+        actions: [
+          {
+            priority: 'HIGH',
+            text: '시장 신호를 확인하고 즉시 대응 전략을 수립하세요.',
+            cta: '시장 신호판',
+            ctaUrl: '/dashboard/market-signals',
+          },
+        ],
+        relatedViews: [
+          { label: '시장 신호판', path: '/dashboard/market-signals' },
+          { label: 'S/D 매트릭스', path: '/dashboard/sd-matrix' },
+        ],
+        isAiGenerated: false,
+      },
+      message: null,
+    });
+  }),
+
+
   // S/D 매트릭스 조회
   http.get('/api/v1/dashboard/sd-matrix', async ({ request }) => {
     await delay(200);
@@ -377,5 +410,46 @@ export const dashboardHandlers = [
       status: 'success',
       data: mockMatches,
     }, { status: 200 });
+  }),
+
+  // 후보자 프로파일러 (POST)
+  http.post('/api/v1/candidate-profiler', async () => {
+    await delay(300)
+    return HttpResponse.json({
+      status: 'success',
+      data: {
+        tdsScore: 72.5,
+        tdsPercentile: 22.3,
+        tdsGrade: 'A',
+        applicationDirection: { type: 'UPWARD', candidateTds: 72.5, targetCompanyTds: 81.0, deltaPercent: -10.5 },
+        salaryNegotiation: { marketP25: 6500, marketP50: 8500, marketP75: 11000, recommendedLeverage: 'MEDIUM' },
+        competingOffers: [
+          { companyName: '카카오', tdsScore: 78, likelihood: 'HIGH' },
+          { companyName: 'LINE', tdsScore: 74, likelihood: 'MEDIUM' },
+          { companyName: 'SKT', tdsScore: 70, likelihood: 'MEDIUM' },
+        ],
+        summary: '검증된 기술 역량과 안정적인 경력을 보유한 후보자입니다. 현 시장에서 경쟁력 있는 포지션에 위치합니다.',
+      },
+      message: null,
+    })
+  }),
+
+  // OppAlert 피드
+  http.get('/api/v1/opp-alert', () => {
+    return HttpResponse.json({
+      status: 'success',
+      data: {
+        items: [
+          { id: '1', companyId: 'c1', companyName: '토스', segment: 'fintech', oppScore: 78, priority: 'CRITICAL', triggers: { otwIncrease: 32, newPostings: 5, hiringWeeks: 12, sdRatio: 0.34 }, detectedAt: new Date().toISOString() },
+          { id: '2', companyId: 'c2', companyName: '카카오', segment: 'platform', oppScore: 62, priority: 'HIGH', triggers: { otwIncrease: 22, newPostings: 3, hiringWeeks: 8, sdRatio: 0.45 }, detectedAt: new Date().toISOString() },
+          { id: '3', companyId: 'c3', companyName: '라인', segment: 'backend', oppScore: 51, priority: 'HIGH', triggers: { otwIncrease: 15, newPostings: 2, hiringWeeks: 6, sdRatio: 0.38 }, detectedAt: new Date().toISOString() },
+          { id: '4', companyId: 'c4', companyName: '쿠팡', segment: 'data', oppScore: 42, priority: 'MEDIUM', triggers: { otwIncrease: 10, newPostings: 1, hiringWeeks: 4, sdRatio: 0.55 }, detectedAt: new Date().toISOString() },
+          { id: '5', companyId: 'c5', companyName: '배달의민족', segment: 'mobile', oppScore: 38, priority: 'MEDIUM', triggers: { otwIncrease: 8, newPostings: 2, hiringWeeks: 5, sdRatio: 0.61 }, detectedAt: new Date().toISOString() },
+        ],
+        total: 5,
+        generatedAt: new Date().toISOString(),
+      },
+      message: null,
+    });
   }),
 ];

@@ -4,10 +4,10 @@ import type { UserCategory } from '../types/auth';
 
 // 카테고리별 대시보드 진입점 매핑 (PRD v3.0 section 3-A)
 const CATEGORY_DEFAULT_ROUTE: Record<UserCategory, string> = {
-  INHOUSE_HR: '/dashboard/top-companies',
-  HEADHUNTER: '/dashboard/timeline',
-  CHRO: '/dashboard/sd-matrix',
-  JOB_SEEKER: '/dashboard/market-signals',
+  INHOUSE_HR: '/dashboard/candidate-profiler',  // PRD v3.0 정식 진입점
+  HEADHUNTER: '/dashboard/opp-alert',            // PRD v3.0 정식 진입점
+  CHRO: '/dashboard/sd-matrix',                  // TDS Simulator 구현 전 임시
+  JOB_SEEKER: '/dashboard/market-signals',       // Market Value 구현 전 임시
 };
 
 // SUPER_ADMIN 기본 진입점

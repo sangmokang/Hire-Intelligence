@@ -12,6 +12,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import { CardSkeleton, ChartSkeleton, TableSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
 import { ActionPanelLayout } from '../common/ActionPanelLayout'
+import { useActionPanel } from '../../hooks/useActionPanel'
 import type { CompanyTimeline } from '../../types/dashboard'
 import type { TimelineMode, TimelineWeeks, TimelineTopN, KeywordOperator } from '../../types'
 
@@ -47,6 +48,9 @@ function adaptTimelineData(timelines: CompanyTimeline[]): DisplayRankItem[] {
 }
 
 export function CompanyTimelineView() {
+  // ActionPanel — BE API 연동 (Hook 규칙: 컴포넌트 최상단)
+  const panelProps = useActionPanel('timeline')
+
   useDashboardStore()
   const [mode, setMode] = useState<TimelineMode>('total')
   const [weeks, setWeeks] = useState<TimelineWeeks>(12)
@@ -132,20 +136,6 @@ export function CompanyTimelineView() {
 
   if (rankData.length === 0) {
     return <EmptyState title="타임라인 데이터가 없습니다" description="선택한 조건에 맞는 기업 타임라인 데이터가 없습니다." />
-  }
-
-  // ActionPanel 데이터 — rule-based 인사이트 및 추천 액션
-  const panelProps = {
-    insight: '12주 시계열에서 지속 채용 기업은 영업 타겟으로 적합합니다.',
-    actions: [
-      { priority: 'HIGH' as const, text: '4주 이상 연속 채용 기업에 집중하세요' },
-      { priority: 'LOW' as const, text: '단발성 채용 기업은 우선순위를 낮추세요' },
-    ],
-    relatedViews: [
-      { label: '기업 분석', path: '/dashboard/company-analysis' },
-      { label: '시장 신호판', path: '/dashboard/market-signals' },
-    ],
-    isLocked: false,
   }
 
   return (

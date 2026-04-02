@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import { CardSkeleton, ChartSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
 import { ActionPanelLayout } from '../common/ActionPanelLayout'
+import { useActionPanel } from '../../hooks/useActionPanel'
 
 const TREND_COLORS = [
   '#378ADD', '#1D9E75', '#E24B4A', '#D4537E', '#888780',
@@ -21,6 +22,9 @@ const TREND_COLORS = [
 const DEFAULT_SEGMENTS = SEGMENTS.map(s => s.id)
 
 export function HiringTrendsView() {
+  // ActionPanel — BE API 연동 (Hook 규칙: 컴포넌트 최상단)
+  const panelProps = useActionPanel('trends')
+
   const [hiddenSegs, setHiddenSegs] = useState<Set<string>>(new Set())
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0])
@@ -146,20 +150,6 @@ export function HiringTrendsView() {
 
   if (trendSeries.length === 0) {
     return <EmptyState title="트렌드 데이터가 없습니다" description="수집된 채용 트렌드 데이터가 없습니다." />
-  }
-
-  // ActionPanel 데이터 — rule-based 인사이트 및 추천 액션
-  const panelProps = {
-    insight: '최근 12주 트렌드에서 상승 세그먼트가 향후 채용 수요 증가를 시사합니다.',
-    actions: [
-      { priority: 'MEDIUM' as const, text: '상승 추세 세그먼트의 파이프라인을 미리 준비하세요' },
-      { priority: 'LOW' as const, text: '하락 세그먼트의 리소스 재배치를 검토하세요' },
-    ],
-    relatedViews: [
-      { label: '수요공급 매트릭스', path: '/dashboard/sd-matrix' },
-      { label: '시장 신호판', path: '/dashboard/market-signals' },
-    ],
-    isLocked: false,
   }
 
   return (
