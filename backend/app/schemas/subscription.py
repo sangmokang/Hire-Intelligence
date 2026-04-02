@@ -3,6 +3,12 @@ from typing import Optional
 from app.schemas.common import CamelModel
 
 
+class UpgradeRequest(CamelModel):
+    """구독 업그레이드 요청 — PRO/ENTERPRISE는 payment_key 필수"""
+    plan: str
+    payment_key: str | None = None
+
+
 class SubscriptionResponse(CamelModel):
     """현재 구독 정보 응답"""
     id: str

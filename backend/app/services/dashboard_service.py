@@ -104,59 +104,46 @@ class DashboardService:
         return _result
 
     def get_company_rankings(self, segment_id: str | None = None, limit: int = 20) -> dict:
-        """기업 순위 — JobPosting + Company"""
+        """기업 순위 — JobPosting + Company (단일 JOIN 쿼리로 최적화)"""
         # 캐시 확인
         _cache_key = f"dashboard_company_rankings:{segment_id or 'all'}:{limit}"
         _cached = cache_service.get(_cache_key)
         if _cached is not None:
             return _cached
 
+        # 단일 JOIN 쿼리: 3개 쿼리 → 1개 쿼리로 통합
+        # func.array_agg(func.distinct(...)) — PostgreSQL 전용, Supabase OK
         q = (
             self.db.query(
                 JobPosting.company_id,
+                Company.name,
                 func.sum(JobPosting.count).label("total_count"),
+                func.array_agg(func.distinct(JobPosting.segment_id)).label("segment_ids"),
             )
-            .group_by(JobPosting.company_id)
+            .join(Company, JobPosting.company_id == Company.id)
+            .group_by(JobPosting.company_id, Company.name)
+            .order_by(desc("total_count"))
+            .limit(limit)
         )
         if segment_id:
             q = q.filter(JobPosting.segment_id == segment_id)
 
-        q = q.order_by(desc("total_count")).limit(limit)
         rows = q.all()
 
         if not rows:
             return {"companies": []}
 
-        # Fetch company names in one query
-        company_ids = [r.company_id for r in rows]
-        companies_map = {
-            str(c.id): c.name
-            for c in self.db.query(Company).filter(Company.id.in_(company_ids)).all()
-        }
-
-        # Fetch segment_ids per company
-        seg_rows = (
-            self.db.query(JobPosting.company_id, JobPosting.segment_id)
-            .filter(JobPosting.company_id.in_(company_ids))
-            .distinct()
-            .all()
-        )
-        seg_map: dict[str, list[str]] = {}
-        for r in seg_rows:
-            key = str(r.company_id)
-            seg_map.setdefault(key, [])
-            if r.segment_id not in seg_map[key]:
-                seg_map[key].append(r.segment_id)
-
         companies = []
         for rank, r in enumerate(rows, start=1):
             cid = str(r.company_id)
+            # array_agg 결과는 list 또는 None — None 방어 처리
+            seg_ids: list[str] = r.segment_ids if r.segment_ids else []
             companies.append({
                 "company_id": cid,
-                "company_name": companies_map.get(cid, cid),
+                "company_name": r.name or cid,
                 "rank": rank,
                 "posting_count": int(r.total_count),
-                "segment_ids": seg_map.get(cid, []),
+                "segment_ids": seg_ids,
             })
 
         _result = {"companies": companies}
@@ -185,14 +172,18 @@ class DashboardService:
             .subquery()
         )
 
+        # 단일 JOIN 쿼리: 2개 쿼리 → 1개 쿼리로 통합 (Company 별도 조회 제거)
         q = (
             self.db.query(
                 JobPosting.company_id,
+                Company.name.label("company_name"),
                 JobPosting.week,
                 func.sum(JobPosting.count).label("total_count"),
             )
+            .join(Company, JobPosting.company_id == Company.id)
             .filter(JobPosting.week.in_(self.db.query(weeks_subq)))
-            .group_by(JobPosting.company_id, JobPosting.week)
+            .group_by(JobPosting.company_id, Company.name, JobPosting.week)
+            .order_by(JobPosting.week, desc(func.sum(JobPosting.count)))
         )
         if company_id:
             try:
@@ -204,16 +195,10 @@ class DashboardService:
         if not rows:
             return {"entries": []}
 
-        company_ids = list({r.company_id for r in rows})
-        companies_map = {
-            str(c.id): c.name
-            for c in self.db.query(Company).filter(Company.id.in_(company_ids)).all()
-        }
-
         entries = [
             {
                 "company_id": str(r.company_id),
-                "company_name": companies_map.get(str(r.company_id), str(r.company_id)),
+                "company_name": r.company_name or str(r.company_id),
                 "week": r.week,
                 "count": int(r.total_count),
             }
@@ -271,28 +256,48 @@ class DashboardService:
         except ValueError:
             return None
 
-        company = self.db.query(Company).filter(Company.id == cid_uuid).first()
-        if not company:
-            return None
-
-        # Aggregate posting counts
-        posting_agg = (
+        # Query 1: Company + JobPosting 주간 집계 JOIN (Company 단독 조회 + 집계 쿼리 통합)
+        # Company 정보와 주간 채용 트렌드를 단일 JOIN으로 조회
+        # Query 1: Company + JobPosting JOIN — 회사 정보와 주간 채용 집계를 한 번에 조회
+        # Company 단독 조회(1개) + 집계 쿼리(1개) → 단일 JOIN(1개)으로 통합
+        company_posting_rows = (
             self.db.query(
+                Company.id,
+                Company.name,
+                Company.segment_id,
+                Company.industry,
                 JobPosting.week,
                 func.sum(JobPosting.count).label("total_count"),
             )
-            .filter(JobPosting.company_id == cid_uuid)
-            .group_by(JobPosting.week)
+            .join(JobPosting, Company.id == JobPosting.company_id, isouter=True)
+            .filter(Company.id == cid_uuid)
+            .group_by(Company.id, Company.name, Company.segment_id, Company.industry, JobPosting.week)
             .order_by(JobPosting.week)
             .all()
         )
 
-        hiring_trend = [
-            {"week": r.week, "demand": int(r.total_count)}
-            for r in posting_agg
-        ]
+        if not company_posting_rows:
+            # JobPosting이 전혀 없는 경우 Company만 조회 (fallback)
+            company = self.db.query(Company).filter(Company.id == cid_uuid).first()
+            if not company:
+                return None
+            company_name = company.name
+            company_segment_id = company.segment_id
+            company_industry = company.industry
+            hiring_trend: list[dict] = []
+        else:
+            first = company_posting_rows[0]
+            company_name = first.name
+            company_segment_id = first.segment_id
+            company_industry = first.industry
+            # week가 None인 행(JobPosting 없음)은 집계에서 제외
+            hiring_trend = [
+                {"week": r.week, "demand": int(r.total_count)}
+                for r in company_posting_rows
+                if r.week is not None
+            ]
 
-        # Recent positions
+        # Query 2: Position — 최근 공고 10건 (ops 스키마, 분리 유지)
         recent_positions = (
             self.db.query(Position)
             .filter(Position.company_id == cid_uuid)
@@ -312,19 +317,19 @@ class DashboardService:
             for p in recent_positions
         ]
 
-        # OTW pct from latest TalentPool for company's segment
+        # Query 3: TalentPool — pulse 스키마, 분리 유지
         otw_pct = 0.0
-        if company.segment_id:
+        if company_segment_id:
             tp = (
                 self.db.query(TalentPool)
-                .filter(TalentPool.segment_id == company.segment_id)
+                .filter(TalentPool.segment_id == company_segment_id)
                 .order_by(desc(TalentPool.week))
                 .first()
             )
             if tp:
                 otw_pct = float(tp.otw_pct)
 
-        # JD 분석 데이터 (있는 경우)
+        # Query 4 (pulse 스키마): JD 분석 데이터 — pulse 스키마, 분리 유지
         jd_analyses = (
             self.db.query(JdAnalysis)
             .filter(JdAnalysis.company_id == cid_uuid, JdAnalysis.parsed_at.isnot(None))
@@ -354,9 +359,9 @@ class DashboardService:
 
         _result = {
             "company_id": company_id,
-            "company_name": company.name,
-            "segment_id": company.segment_id,
-            "industry": company.industry,
+            "company_name": company_name,
+            "segment_id": company_segment_id,
+            "industry": company_industry,
             "hiring_trend": hiring_trend,
             "recent_postings": recent_postings,
             "otw_pct": otw_pct,

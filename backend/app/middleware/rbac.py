@@ -4,6 +4,7 @@ from app.dependencies import get_current_user
 # 역할 레벨 정의
 ROLE_LEVELS: dict[str, int] = {
     "SUPER_ADMIN": 100,
+    "ADMIN": 50,
     "USER": 10,
     "GUEST": 0,
 }
@@ -28,4 +29,5 @@ def require_role(required_role: str):
 
 # 편의 의존성
 require_super_admin = require_role("SUPER_ADMIN")
+require_admin = require_role("ADMIN")
 require_user = require_role("USER")

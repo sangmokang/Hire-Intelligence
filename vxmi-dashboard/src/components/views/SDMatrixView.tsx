@@ -10,6 +10,7 @@ import { SDDataTable } from '../common/SDDataTable'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { ChartSkeleton, CardSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
+import { ActionPanelLayout } from '../common/ActionPanelLayout'
 import type { SDMatrixItem } from '../../types/dashboard'
 
 type ViewMode = 'segment' | 'industry'
@@ -154,7 +155,22 @@ export function SDMatrixView() {
     return <EmptyState title="S/D 매트릭스 데이터가 없습니다" description="수집된 세그먼트 데이터가 없습니다." />
   }
 
+  // ActionPanel 데이터 — rule-based 인사이트 및 추천 액션
+  const panelProps = {
+    insight: '기회지대(고수요/저공급) 세그먼트가 영업 타겟 1순위입니다.',
+    actions: [
+      { priority: 'HIGH' as const, text: '기회지대 세그먼트의 기업 리스트를 확인하세요' },
+      { priority: 'MEDIUM' as const, text: '과잉공급 구간은 후보자 시장이므로 소싱 전략을 조정하세요' },
+    ],
+    relatedViews: [
+      { label: 'Top 채용 볼륨', path: '/dashboard/top-companies' },
+      { label: '채용 트렌드', path: '/dashboard/trends' },
+    ],
+    isLocked: false,
+  }
+
   return (
+    <ActionPanelLayout panel={panelProps}>
     <ErrorBoundary>
       <div>
         <div className="grid grid-cols-4 gap-3 mb-6">
@@ -316,5 +332,6 @@ export function SDMatrixView() {
         />
       </div>
     </ErrorBoundary>
+    </ActionPanelLayout>
   )
 }

@@ -13,13 +13,14 @@ import {
 } from 'recharts'
 import { useCompanyAnalysis } from '../../hooks/useDashboard'
 import { SparkBars } from '../common/SparkBars'
-
-const DEFAULT_COMPANY_BTNS = ['토스', '카카오', '네이버', '삼성전자', '쿠팡']
 import { TalentFlowChart } from '../common/TalentFlowChart'
+import { ActionPanelLayout } from '../common/ActionPanelLayout'
 import type { TalentFlow, CompanyProfile } from '../../types/dashboard'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { CardSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
+
+const DEFAULT_COMPANY_BTNS = ['토스', '카카오', '네이버', '삼성전자', '쿠팡']
 
 // 5축 레이더 데이터 빌드 (0~100 스케일로 변환)
 function buildRadarData(profile: CompanyProfile) {
@@ -90,7 +91,22 @@ export function CompanyAnalysisView() {
 
   const profile = response?.data ?? null
 
+  // ActionPanel 데이터 — rule-based 인사이트 및 추천 액션
+  const panelProps = {
+    insight: '기업의 인재밀도와 채용파워 지수를 통해 채용 전략을 수립할 수 있습니다.',
+    actions: [
+      { priority: 'HIGH' as const, text: '인재밀도가 높은 기업은 타겟 소싱 대상입니다' },
+      { priority: 'MEDIUM' as const, text: '채용파워 지수가 급등하는 기업의 JD를 분석하세요' },
+    ],
+    relatedViews: [
+      { label: '시계열 인텔리전스', path: '/dashboard/timeline' },
+      { label: '수요공급 매트릭스', path: '/dashboard/sd-matrix' },
+    ],
+    isLocked: false,
+  }
+
   return (
+    <ActionPanelLayout panel={panelProps}>
     <ErrorBoundary>
       <div>
         {/* Quick-select buttons */}
@@ -252,5 +268,6 @@ export function CompanyAnalysisView() {
         )}
       </div>
     </ErrorBoundary>
+    </ActionPanelLayout>
   )
 }

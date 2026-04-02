@@ -106,6 +106,19 @@ function IconSignal() {
   );
 }
 
+// 시장 신호판 아이콘 (신호등 형태)
+function IconTrafficLight() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 3h6a1 1 0 011 1v14a1 1 0 01-1 1H9a1 1 0 01-1-1V4a1 1 0 011-1z" />
+      <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="17" r="1.5" fill="currentColor" stroke="none" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v0M8 3h8" />
+    </svg>
+  );
+}
+
 function IconTag() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -189,6 +202,7 @@ interface NavItem {
 const ANALYSIS_NAV: NavItem[] = [
   { label: 'Top 20 채용 볼륨', to: '/dashboard/top-companies', icon: <IconChart /> },
   { label: '수요공급 매트릭스', to: '/dashboard/sd-matrix', icon: <IconGrid /> },
+  { label: '시장 신호판', to: '/dashboard/market-signals', icon: <IconTrafficLight /> },
   { label: '시계열 인텔리전스', to: '/dashboard/timeline', icon: <IconClock />, proOnly: true },
   { label: '채용 트렌드', to: '/dashboard/trends', icon: <IconTrendUp />, proOnly: true },
   { label: '이력서 매칭', to: '/dashboard/resume-match', icon: <IconDocument />, proOnly: true },

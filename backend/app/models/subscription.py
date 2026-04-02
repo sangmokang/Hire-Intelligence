@@ -30,6 +30,8 @@ class Subscription(Base):
 
     # 결제 수단
     payment_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Toss 결제 키 — 유료 플랜 결제 확인 후 저장
+    payment_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # 타임스탬프
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

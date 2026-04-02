@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from app.schemas.common import CamelModel
 
@@ -36,3 +37,74 @@ class CrawlStatusResponse(CamelModel):
     total_crawled: int                  # 마지막 크롤 총 수집 수
     total_parsed: int                   # 마지막 크롤 총 파싱 수
     next_scheduled: str                 # 정적 스케줄 정보
+
+
+# ── 유저 관리 스키마 ──────────────────────────────────────────────────────────
+
+class AdminUserDetail(CamelModel):
+    """관리자 유저 상세 정보"""
+    user_id: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    role: str
+    plan: str
+    status: str
+    company: Optional[str] = None
+    job_title: Optional[str] = None
+    login_count: int = 0
+    last_login_at: Optional[str] = None
+    created_at: Optional[str] = None
+    # 구독 이력 (최근 구독 정보)
+    subscription_plan: Optional[str] = None
+    subscription_status: Optional[str] = None
+    subscription_started_at: Optional[str] = None
+    subscription_expires_at: Optional[str] = None
+
+
+class AdminUserListResponse(CamelModel):
+    """유저 목록 응답 (페이지네이션)"""
+    users: list[AdminUserDetail]
+    total: int
+    offset: int
+    limit: int
+
+
+class AdminUserUpdateRequest(CamelModel):
+    """유저 정보 수정 요청"""
+    role: Optional[str] = None      # USER / ADMIN / SUPER_ADMIN
+    status: Optional[str] = None    # ACTIVE / SUSPENDED / BLOCKED
+    plan: Optional[str] = None      # STARTER / PRO / ENTERPRISE
+
+
+# ── 과금 관리 스키마 ──────────────────────────────────────────────────────────
+
+class PlanStat(CamelModel):
+    """플랜별 사용자 수"""
+    plan: str
+    count: int
+
+
+class BillingSummaryResponse(CamelModel):
+    """과금 요약 응답"""
+    plan_stats: list[PlanStat]      # 플랜별 유저 수
+    total_users: int
+
+
+class PaymentItem(CamelModel):
+    """결제 내역 항목"""
+    id: str
+    user_id: str
+    user_email: Optional[str] = None
+    amount: int
+    plan: str
+    status: str
+    paid_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class BillingPaymentsResponse(CamelModel):
+    """결제 내역 응답"""
+    payments: list[PaymentItem]
+    total: int
+    offset: int
+    limit: int

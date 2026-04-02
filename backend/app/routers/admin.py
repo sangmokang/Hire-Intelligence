@@ -9,29 +9,171 @@ from supabase import Client
 from app.database import get_db
 from app.dependencies import get_supabase_client
 from app.middleware.rbac import require_super_admin
-from app.schemas.admin import AnomalyItem, CrawlStatusResponse, DataQualityResponse, WeeklyCollectionStats
+from app.schemas.admin import (
+    AnomalyItem, CrawlStatusResponse, DataQualityResponse, WeeklyCollectionStats,
+    AdminUserDetail, AdminUserListResponse, AdminUserUpdateRequest,
+    BillingSummaryResponse, BillingPaymentsResponse, PlanStat, PaymentItem,
+)
 from app.schemas.common import ApiResponse
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-@router.get("/users", response_model=ApiResponse[list])
-async def list_users(
+@router.get("/users", response_model=ApiResponse[AdminUserListResponse])
+def list_users(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    role: str | None = Query(None),
+    plan: str | None = Query(None),
+    status: str | None = Query(None),
     current_user: dict = Depends(require_super_admin),
     supabase: Client = Depends(get_supabase_client),
 ):
-    """전체 사용자 목록 (관리자 전용)"""
+    """전체 사용자 목록 — 필터 + 페이지네이션 (SUPER_ADMIN 전용)"""
+    # 전체 조회 후 필터 적용 (Supabase PostgREST 방식)
+    query = supabase.table("user_profiles").select(
+        "id, email, name, company, job_title, role, status, plan, login_count, last_login_at, created_at",
+        count="exact",
+    )
+    if role:
+        query = query.eq("role", role)
+    if plan:
+        query = query.eq("plan", plan)
+    if status:
+        query = query.eq("status", status)
+
+    result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    rows = result.data or []
+    total = result.count or 0
+
+    users = [
+        AdminUserDetail(
+            user_id=str(r["id"]),
+            email=r.get("email"),
+            name=r.get("name"),
+            role=r.get("role", "USER"),
+            plan=r.get("plan", "STARTER"),
+            status=r.get("status", "ACTIVE"),
+            company=r.get("company"),
+            job_title=r.get("job_title"),
+            login_count=r.get("login_count", 0),
+            last_login_at=str(r["last_login_at"]) if r.get("last_login_at") else None,
+            created_at=str(r["created_at"]) if r.get("created_at") else None,
+        )
+        for r in rows
+    ]
+    return ApiResponse(
+        data=AdminUserListResponse(users=users, total=total, offset=offset, limit=limit),
+        message="사용자 목록",
+    )
+
+
+@router.get("/users/{user_id}", response_model=ApiResponse[AdminUserDetail])
+def get_user_detail(
+    user_id: str,
+    current_user: dict = Depends(require_super_admin),
+    supabase: Client = Depends(get_supabase_client),
+    db: Session = Depends(get_db),
+):
+    """사용자 상세 정보 + 구독 이력 (SUPER_ADMIN 전용)"""
     result = (
         supabase.table("user_profiles")
-        .select(
-            "id, email, name, phone, company, job_title, profile_image_url, "
-            "role, category, status, plan, organization_id, last_login_at, login_count, created_at"
-        )
-        .limit(100)
-        .order("created_at", desc=True)
+        .select("id, email, name, company, job_title, role, status, plan, login_count, last_login_at, created_at")
+        .eq("id", user_id)
+        .single()
         .execute()
     )
-    return ApiResponse(data=result.data or [], message="사용자 목록")
+    if not result.data:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    r = result.data
+
+    # 구독 이력 조회
+    sub_plan = sub_status = sub_started = sub_expires = None
+    try:
+        from app.models.subscription import Subscription
+        import uuid as _uuid
+        sub = db.query(Subscription).filter(
+            Subscription.user_id == _uuid.UUID(user_id)
+        ).order_by(Subscription.created_at.desc()).first()
+        if sub:
+            sub_plan = sub.plan
+            sub_status = sub.status
+            sub_started = sub.started_at.isoformat() if sub.started_at else None
+            sub_expires = sub.expires_at.isoformat() if sub.expires_at else None
+    except Exception:
+        pass
+
+    return ApiResponse(
+        data=AdminUserDetail(
+            user_id=str(r["id"]),
+            email=r.get("email"),
+            name=r.get("name"),
+            role=r.get("role", "USER"),
+            plan=r.get("plan", "STARTER"),
+            status=r.get("status", "ACTIVE"),
+            company=r.get("company"),
+            job_title=r.get("job_title"),
+            login_count=r.get("login_count", 0),
+            last_login_at=str(r["last_login_at"]) if r.get("last_login_at") else None,
+            created_at=str(r["created_at"]) if r.get("created_at") else None,
+            subscription_plan=sub_plan,
+            subscription_status=sub_status,
+            subscription_started_at=sub_started,
+            subscription_expires_at=sub_expires,
+        )
+    )
+
+
+@router.patch("/users/{user_id}", response_model=ApiResponse[AdminUserDetail])
+def update_user(
+    user_id: str,
+    body: AdminUserUpdateRequest,
+    current_user: dict = Depends(require_super_admin),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """사용자 역할/상태/플랜 변경 (SUPER_ADMIN 전용)"""
+    update_data: dict = {}
+    if body.role is not None:
+        update_data["role"] = body.role
+    if body.status is not None:
+        update_data["status"] = body.status
+    if body.plan is not None:
+        update_data["plan"] = body.plan
+
+    if not update_data:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="변경할 항목이 없습니다.")
+
+    result = (
+        supabase.table("user_profiles")
+        .update(update_data)
+        .eq("id", user_id)
+        .execute()
+    )
+    rows = result.data or []
+    if not rows:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    r = rows[0]
+    return ApiResponse(
+        data=AdminUserDetail(
+            user_id=str(r["id"]),
+            email=r.get("email"),
+            name=r.get("name"),
+            role=r.get("role", "USER"),
+            plan=r.get("plan", "STARTER"),
+            status=r.get("status", "ACTIVE"),
+            company=r.get("company"),
+            job_title=r.get("job_title"),
+            login_count=r.get("login_count", 0),
+            last_login_at=str(r["last_login_at"]) if r.get("last_login_at") else None,
+            created_at=str(r["created_at"]) if r.get("created_at") else None,
+        ),
+        message="사용자 정보가 업데이트되었습니다.",
+    )
 
 
 @router.get("/stats", response_model=ApiResponse[dict])
@@ -227,4 +369,72 @@ def get_crawl_status(
             total_parsed=last_run.total_parsed,
             next_scheduled="매주 월요일 03:00 KST",
         )
+    )
+
+
+# ── 과금 관리 ─────────────────────────────────────────────────────────────────
+
+@router.get("/billing/summary", response_model=ApiResponse[BillingSummaryResponse])
+def billing_summary(
+    current_user: dict = Depends(require_super_admin),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """플랜별 사용자 수 요약 (SUPER_ADMIN 전용)"""
+    result = supabase.table("user_profiles").select("plan", count="exact").execute()
+    rows = result.data or []
+
+    # 플랜별 카운트 집계
+    plan_counts: dict[str, int] = {}
+    for r in rows:
+        p = r.get("plan", "STARTER") or "STARTER"
+        plan_counts[p] = plan_counts.get(p, 0) + 1
+
+    plan_stats = [PlanStat(plan=plan, count=cnt) for plan, cnt in sorted(plan_counts.items())]
+    total_users = sum(s.count for s in plan_stats)
+
+    return ApiResponse(
+        data=BillingSummaryResponse(plan_stats=plan_stats, total_users=total_users)
+    )
+
+
+@router.get("/billing/payments", response_model=ApiResponse[BillingPaymentsResponse])
+def billing_payments(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: dict = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """최근 결제 내역 (SUPER_ADMIN 전용) — Payment 모델 없으면 빈 결과 반환"""
+    try:
+        from app.models.payment import Payment  # Task 1에서 생성 예정
+        from sqlalchemy import desc as _desc
+
+        total: int = db.query(Payment).count()
+        rows = (
+            db.query(Payment)
+            .order_by(_desc(Payment.created_at))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        payments = [
+            PaymentItem(
+                id=str(p.id),
+                user_id=str(p.user_id),
+                user_email=getattr(p, "user_email", None),
+                amount=getattr(p, "amount", 0),
+                plan=getattr(p, "plan", ""),
+                status=getattr(p, "status", ""),
+                paid_at=p.paid_at.isoformat() if getattr(p, "paid_at", None) else None,
+                created_at=p.created_at.isoformat() if getattr(p, "created_at", None) else None,
+            )
+            for p in rows
+        ]
+    except (ImportError, Exception):
+        # Payment 모델이 아직 없거나 테이블 미존재 시 빈 결과
+        payments = []
+        total = 0
+
+    return ApiResponse(
+        data=BillingPaymentsResponse(payments=payments, total=total, offset=offset, limit=limit)
     )

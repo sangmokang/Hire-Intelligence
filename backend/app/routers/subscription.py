@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_supabase_client
-from app.schemas.subscription import SubscriptionResponse, PlanInfo, PlansListResponse
+from app.schemas.subscription import SubscriptionResponse, PlanInfo, PlansListResponse, UpgradeRequest
 from app.schemas.common import ApiResponse
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
@@ -90,37 +90,51 @@ async def get_current_subscription(
 
 @router.post("/upgrade", response_model=ApiResponse[SubscriptionResponse])
 async def upgrade_plan(
-    body: dict,
+    body: UpgradeRequest,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
     supabase=Depends(get_supabase_client),
 ):
-    """구독 플랜 업그레이드"""
+    """구독 플랜 업그레이드
+
+    - STARTER 전환: payment_key 불필요
+    - PRO / ENTERPRISE 전환: payment_key 필수 (Toss 결제 완료 후 confirm 엔드포인트에서 처리 권장)
+    """
     from app.models.subscription import Subscription
     import uuid
 
-    plan = body.get("plan", "").upper()
+    plan = body.plan.upper()
     if plan not in VALID_PLANS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"유효하지 않은 플랜입니다. 가능한 플랜: {', '.join(VALID_PLANS)}",
         )
 
+    # 유료 플랜 전환 시 payment_key 필수
+    if plan in ("PRO", "ENTERPRISE") and not body.payment_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유료 플랜 전환에는 payment_key가 필요합니다. /payments/confirm 엔드포인트를 먼저 호출하세요.",
+        )
+
     user_id = current_user["id"]
+
+    now = datetime.now(timezone.utc)
 
     # 기존 활성 구독 취소
     db.query(Subscription).filter(
         Subscription.user_id == user_id,
         Subscription.status == "active",
-    ).update({"status": "cancelled", "cancelled_at": datetime.now(timezone.utc)})
+    ).update({"status": "cancelled", "cancelled_at": now})
 
-    # 새 구독 생성
+    # 새 구독 생성 (유료 플랜은 payment_key 저장)
     new_sub = Subscription(
         id=uuid.uuid4(),
         user_id=user_id,
         plan=plan,
         status="active",
-        started_at=datetime.now(timezone.utc),
+        payment_key=body.payment_key,
+        started_at=now,
     )
     db.add(new_sub)
     db.commit()

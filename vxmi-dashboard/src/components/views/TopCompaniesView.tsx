@@ -7,6 +7,7 @@ import { TreeMapChart } from '../charts/TreeMapChart'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { CardSkeleton, ChartSkeleton } from '../common/LoadingSkeleton'
 import { EmptyState } from '../common/EmptyState'
+import { ActionPanelLayout } from '../common/ActionPanelLayout'
 
 export function TopCompaniesView() {
   const [fromDate, setFromDate] = useState('')
@@ -81,7 +82,22 @@ export function TopCompaniesView() {
     return <EmptyState title="기업 데이터가 없습니다" description="수집된 채용 기업 데이터가 없습니다." />
   }
 
+  // ActionPanel 데이터 — rule-based 인사이트 및 추천 액션
+  const panelProps = {
+    insight: '이번 주 상위 채용 기업의 포지션 집중도가 높습니다. 특정 세그먼트에 채용 수요가 몰리고 있습니다.',
+    actions: [
+      { priority: 'HIGH' as const, text: '트리맵에서 비중이 큰 세그먼트의 상세 기업을 확인하세요' },
+      { priority: 'MEDIUM' as const, text: '전주 대비 급등 기업에 주목하세요' },
+    ],
+    relatedViews: [
+      { label: '시계열 인텔리전스', path: '/dashboard/timeline' },
+      { label: '시장 신호판', path: '/dashboard/market-signals' },
+    ],
+    isLocked: false,
+  }
+
   return (
+    <ActionPanelLayout panel={panelProps}>
     <ErrorBoundary>
       <div>
         <div className="grid grid-cols-4 gap-3 mb-6">
@@ -196,5 +212,6 @@ export function TopCompaniesView() {
         <TreeMapChart data={filteredCompanies} />
       </div>
     </ErrorBoundary>
+    </ActionPanelLayout>
   )
 }

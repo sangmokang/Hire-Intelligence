@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { apiClient } from '../../services/apiClient';
+import { initTossPayments } from '../../services/tossPayments';
+import type { PreparePaymentResponse } from '../../services/tossPayments';
 import type { BusinessPlan } from '../../types/auth';
 
 const PLAN_ORDER: BusinessPlan[] = ['STARTER', 'PRO', 'ENTERPRISE'];
@@ -70,31 +72,85 @@ export default function PlansPage() {
     return targetIdx < currentIdx;
   };
 
+  // STARTER → 즉시 변경 (결제 없음)
+  const handleUpgradeToStarter = async () => {
+    setUpgradingPlan('STARTER');
+    try {
+      const response = await apiClient.post<{
+        status: string;
+        data: { id: string; plan: BusinessPlan; status: string; startedAt: string; expiresAt: string };
+        message: string;
+      }>('/api/v1/subscriptions/upgrade', { plan: 'STARTER' });
+
+      if (user) {
+        setUser({ ...user, plan: response.data.data.plan });
+      }
+      alert(response.data.message ?? '플랜이 Starter로 변경되었습니다.');
+    } catch (err: unknown) {
+      const axiosData = (err as { response?: { data?: { detail?: string } } })?.response?.data;
+      const message = axiosData?.detail ?? '플랜 변경에 실패했습니다. 다시 시도해 주세요.';
+      alert(message);
+    } finally {
+      setUpgradingPlan(null);
+    }
+  };
+
+  // PRO / ENTERPRISE → Toss 결제 플로우
+  const handleUpgradeWithPayment = async (planId: BusinessPlan) => {
+    setUpgradingPlan(planId);
+    try {
+      // 1. 결제 준비 — 서버에서 orderId, amount 발급
+      const prepareRes = await apiClient.post<{
+        status: string;
+        data: PreparePaymentResponse;
+        message: string | null;
+      }>('/api/v1/payments/prepare', { plan: planId });
+
+      const { orderId, amount, orderName } = prepareRes.data.data;
+
+      // 2. Toss Payments SDK 초기화
+      const tossPayments = await initTossPayments();
+      if (!tossPayments) {
+        alert('결제 모듈을 불러올 수 없습니다. VITE_TOSS_CLIENT_KEY를 확인해 주세요.');
+        return;
+      }
+
+      // 3. 결제창 열기 — 성공/실패 시 해당 URL로 리다이렉트
+      const baseUrl = window.location.origin;
+      await tossPayments.requestPayment({
+        method: 'CARD',
+        amount: {
+          currency: 'KRW',
+          value: amount,
+        },
+        orderId,
+        orderName,
+        successUrl: `${baseUrl}/my/billing/payment/success`,
+        failUrl: `${baseUrl}/my/billing/payment/fail`,
+        customerEmail: user?.email ?? '',
+        customerName: user?.name ?? '',
+      });
+      // requestPayment는 리다이렉트로 완료되므로 이후 코드는 실행되지 않음
+    } catch (err: unknown) {
+      // 사용자가 결제창을 닫거나 오류 발생 시
+      const axiosData = (err as { response?: { data?: { detail?: string } } })?.response?.data;
+      const message = axiosData?.detail ?? '결제 처리 중 오류가 발생했습니다.';
+      alert(message);
+    } finally {
+      setUpgradingPlan(null);
+    }
+  };
+
   const handleUpgrade = async (planId: BusinessPlan) => {
     if (isDowngrade(planId)) {
       alert('다운그레이드는 지원하지 않습니다. 고객센터에 문의해 주세요.');
       return;
     }
 
-    setUpgradingPlan(planId);
-    try {
-      const response = await apiClient.post<{
-        status: string;
-        data: { id: string; plan: BusinessPlan; status: string; startedAt: string; expiresAt: string };
-        message: string;
-      }>('/api/v1/subscriptions/upgrade', { plan: planId });
-
-      if (user) {
-        setUser({ ...user, plan: response.data.data.plan });
-      }
-
-      alert(response.data.message ?? `플랜이 ${planId}으로 변경되었습니다.`);
-    } catch (err: unknown) {
-      const axiosData = (err as { response?: { data?: { detail?: string } } })?.response?.data;
-      const message = axiosData?.detail || '플랜 변경에 실패했습니다. 다시 시도해 주세요.';
-      alert(message);
-    } finally {
-      setUpgradingPlan(null);
+    if (planId === 'STARTER') {
+      await handleUpgradeToStarter();
+    } else {
+      await handleUpgradeWithPayment(planId);
     }
   };
 
@@ -161,7 +217,9 @@ export default function PlansPage() {
                   ? '처리 중...'
                   : isCurrent
                   ? '현재 플랜'
-                  : '업그레이드'}
+                  : plan.id === 'STARTER'
+                  ? '다운그레이드'
+                  : '결제하기'}
               </button>
             </div>
           );

@@ -12,6 +12,8 @@ PUBLIC_PATHS = [
     r"^/api/v1/auth/signup$",
     r"^/api/v1/auth/login$",
     r"^/api/v1/auth/refresh$",
+    # Toss 웹훅 — 서버 간 통신, Bearer 토큰 없음
+    r"^/api/v1/payments/webhook$",
 ]
 
 

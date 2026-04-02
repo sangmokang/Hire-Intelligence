@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str | None = None
     RESEND_FROM_EMAIL: str = "noreply@hire-intelligence.co.kr"
 
+    # Toss Payments 결제 설정
+    TOSS_SECRET_KEY: str = ""
+    TOSS_CLIENT_KEY: str = ""
+    TOSS_WEBHOOK_SECRET: str = ""
+
     model_config = {
         "env_file": _resolve_env_file(),
         "case_sensitive": True,

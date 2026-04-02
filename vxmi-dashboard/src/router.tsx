@@ -1,10 +1,13 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import LandingPage from './pages/LandingPage';
 
 // Layouts
 import { AuthLayout } from './components/layout/AuthLayout';
 import { DashboardLayout } from './components/layout/DashboardLayout';
+
+// Dashboard redirect
+import { DashboardRedirect } from './components/DashboardRedirect';
 
 // Guards
 import { AuthGuard } from './components/guards/AuthGuard';
@@ -28,6 +31,7 @@ import { JdInsightsView } from './components/views/JdInsightsView'
 import { CompanyDnaView } from './components/views/CompanyDnaView';
 import { CompanyCompareView } from './components/views/CompanyCompareView';
 import { AdminDataView } from './components/views/AdminDataView';
+import { MarketSignalsView } from './components/views/MarketSignalsView';
 
 // My pages
 import ProfilePage from './pages/my/ProfilePage';
@@ -39,6 +43,8 @@ import SettingsPage from './pages/my/SettingsPage';
 const AnalyticsPage = lazy(() => import('./pages/my/AnalyticsPage'));
 const BillingHistoryPage = lazy(() => import('./pages/my/BillingHistoryPage'));
 const DeleteAccountPage = lazy(() => import('./pages/my/DeleteAccountPage'));
+const PaymentSuccessPage = lazy(() => import('./pages/my/PaymentSuccessPage'));
+const PaymentFailPage = lazy(() => import('./pages/my/PaymentFailPage'));
 
 // Placeholder components for future pages
 // eslint-disable-next-line react-refresh/only-export-components
@@ -77,11 +83,12 @@ export const router = createBrowserRouter([
     ),
     children: [
       // Dashboard - redirect to default view
-      { path: '/dashboard', element: <Navigate to="/dashboard/top-companies" replace /> },
+      { path: '/dashboard', element: <DashboardRedirect /> },
 
       // Analysis views (existing 6 views)
       { path: '/dashboard/top-companies', element: <TopCompaniesView /> },
       { path: '/dashboard/sd-matrix', element: <SDMatrixView /> },
+      { path: '/dashboard/market-signals', element: <MarketSignalsView /> },
       { path: '/dashboard/timeline', element: (
         <PlanGuard requiredPlan="PRO">
           <CompanyTimelineView />
@@ -124,6 +131,8 @@ export const router = createBrowserRouter([
       { path: '/my/billing/plans', element: <PlansPage /> },
       { path: '/my/billing/history', element: <Suspense fallback={null}><BillingHistoryPage /></Suspense> },
       { path: '/my/billing/payment-methods', element: <PlaceholderPage title="결제 수단 관리" /> },
+      { path: '/my/billing/payment/success', element: <Suspense fallback={null}><PaymentSuccessPage /></Suspense> },
+      { path: '/my/billing/payment/fail', element: <Suspense fallback={null}><PaymentFailPage /></Suspense> },
       { path: '/my/analytics', element: <Suspense fallback={null}><AnalyticsPage /></Suspense> },
       { path: '/my/analytics/usage', element: <PlaceholderPage title="사용량 통계" /> },
       { path: '/my/analytics/history', element: <PlaceholderPage title="활동 타임라인" /> },
