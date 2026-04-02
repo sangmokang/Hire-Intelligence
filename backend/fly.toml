@@ -9,15 +9,19 @@ primary_region = 'nrt'
 [build]
   dockerfile = 'Dockerfile'
 
+[deploy]
+  # 앱 인스턴스 시작 전에 DB 마이그레이션 실행 (다중 인스턴스 race condition 방지)
+  release_command = "alembic upgrade head"
+
 [env]
   APP_ENV = 'production'
 
 [http_service]
-  internal_port = 8000
+  internal_port = 8080
   force_https = true
   auto_stop_machines = 'suspend'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1  # 결제 웹훅 cold start 방지
 
   [http_service.concurrency]
     type = 'requests'
@@ -33,4 +37,4 @@ primary_region = 'nrt'
 
 [[vm]]
   size = 'shared-cpu-1x'
-  memory = '256mb'
+  memory = '512mb'  # FastAPI + SQLAlchemy + Sentry OOM 방지

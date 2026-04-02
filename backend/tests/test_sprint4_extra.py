@@ -85,7 +85,9 @@ def test_admin_users_as_admin(admin_client, mock_supabase):
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "success"
-    assert isinstance(body["data"], list)
+    # admin/users 응답은 paginated object (users, total, offset, limit)
+    assert isinstance(body["data"], dict)
+    assert "users" in body["data"]
 
 
 def test_admin_data_quality_as_user_forbidden(authed_client):

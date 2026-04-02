@@ -33,6 +33,11 @@ import { CompanyCompareView } from './components/views/CompanyCompareView';
 import { AdminDataView } from './components/views/AdminDataView';
 import { MarketSignalsView } from './components/views/MarketSignalsView';
 
+// Admin views - lazy loaded
+const AdminUsersView = lazy(() => import('./components/views/AdminUsersView').then(m => ({ default: m.AdminUsersView })));
+const AdminUserDetailView = lazy(() => import('./components/views/AdminUserDetailView').then(m => ({ default: m.AdminUserDetailView })));
+const AdminBillingView = lazy(() => import('./components/views/AdminBillingView').then(m => ({ default: m.AdminBillingView })));
+
 // My pages
 import ProfilePage from './pages/my/ProfilePage';
 import BillingPage from './pages/my/BillingPage';
@@ -45,6 +50,7 @@ const BillingHistoryPage = lazy(() => import('./pages/my/BillingHistoryPage'));
 const DeleteAccountPage = lazy(() => import('./pages/my/DeleteAccountPage'));
 const PaymentSuccessPage = lazy(() => import('./pages/my/PaymentSuccessPage'));
 const PaymentFailPage = lazy(() => import('./pages/my/PaymentFailPage'));
+const PaymentMethodsPage = lazy(() => import('./pages/my/PaymentMethodsPage'));
 
 // Placeholder components for future pages
 // eslint-disable-next-line react-refresh/only-export-components
@@ -130,7 +136,7 @@ export const router = createBrowserRouter([
       { path: '/my/billing', element: <BillingPage /> },
       { path: '/my/billing/plans', element: <PlansPage /> },
       { path: '/my/billing/history', element: <Suspense fallback={null}><BillingHistoryPage /></Suspense> },
-      { path: '/my/billing/payment-methods', element: <PlaceholderPage title="결제 수단 관리" /> },
+      { path: '/my/billing/payment-methods', element: <Suspense fallback={null}><PaymentMethodsPage /></Suspense> },
       { path: '/my/billing/payment/success', element: <Suspense fallback={null}><PaymentSuccessPage /></Suspense> },
       { path: '/my/billing/payment/fail', element: <Suspense fallback={null}><PaymentFailPage /></Suspense> },
       { path: '/my/analytics', element: <Suspense fallback={null}><AnalyticsPage /></Suspense> },
@@ -145,7 +151,7 @@ export const router = createBrowserRouter([
         path: '/admin/users',
         element: (
           <RoleGuard requiredRole="SUPER_ADMIN">
-            <PlaceholderPage title="유저 관리" />
+            <Suspense fallback={null}><AdminUsersView /></Suspense>
           </RoleGuard>
         ),
       },
@@ -153,7 +159,7 @@ export const router = createBrowserRouter([
         path: '/admin/users/:id',
         element: (
           <RoleGuard requiredRole="SUPER_ADMIN">
-            <PlaceholderPage title="유저 상세" />
+            <Suspense fallback={null}><AdminUserDetailView /></Suspense>
           </RoleGuard>
         ),
       },
@@ -169,7 +175,7 @@ export const router = createBrowserRouter([
         path: '/admin/billing',
         element: (
           <RoleGuard requiredRole="SUPER_ADMIN">
-            <PlaceholderPage title="과금 관리" />
+            <Suspense fallback={null}><AdminBillingView /></Suspense>
           </RoleGuard>
         ),
       },

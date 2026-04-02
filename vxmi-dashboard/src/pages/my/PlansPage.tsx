@@ -108,16 +108,20 @@ export default function PlansPage() {
 
       const { orderId, amount, orderName } = prepareRes.data.data;
 
-      // 2. Toss Payments SDK 초기화
+      // 2. Toss Payments SDK 초기화 → payment 객체 생성
       const tossPayments = await initTossPayments();
       if (!tossPayments) {
         alert('결제 모듈을 불러올 수 없습니다. VITE_TOSS_CLIENT_KEY를 확인해 주세요.');
         return;
       }
 
+      // 비회원 결제 (customerKey 없이 ANONYMOUS 사용)
+      const { ANONYMOUS } = await import('@tosspayments/tosspayments-sdk');
+      const payment = tossPayments.payment({ customerKey: ANONYMOUS });
+
       // 3. 결제창 열기 — 성공/실패 시 해당 URL로 리다이렉트
       const baseUrl = window.location.origin;
-      await tossPayments.requestPayment({
+      await payment.requestPayment({
         method: 'CARD',
         amount: {
           currency: 'KRW',

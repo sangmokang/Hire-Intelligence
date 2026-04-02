@@ -333,8 +333,10 @@ def get_company_analysis(
     dna = dna_service.get_company_dna(company_id)
 
     if dna:
-        senior_count = dna["hiring"]["role_level_dist"].get("senior", 0)
-        total_postings = max(dna["hiring"]["total_postings"], 1)
+        role_level_dist = dna["hiring"].get("role_level_dist", {})
+        senior_count = role_level_dist.get("senior", 0) if isinstance(role_level_dist, dict) else 0
+        raw_postings = dna["hiring"].get("total_postings", 1)
+        total_postings = max(int(raw_postings), 1) if isinstance(raw_postings, (int, float)) else 1
         talent_density = TalentDensity(
             overall=dna["tech"]["diversity_score"],
             tech_diversity=dna["tech"]["diversity_index"],

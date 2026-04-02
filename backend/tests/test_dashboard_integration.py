@@ -21,6 +21,10 @@ def _make_mock_db():
     db.query.return_value.order_by.return_value.limit.return_value.all.return_value = []
     db.query.return_value.join.return_value.filter.return_value.all.return_value = []
     db.query.return_value.join.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = []
+    # JOIN + GROUP BY 체인 (get_company_profile 등에서 사용)
+    db.query.return_value.join.return_value.filter.return_value.group_by.return_value.all.return_value = []
+    db.query.return_value.join.return_value.filter.return_value.group_by.return_value.order_by.return_value.all.return_value = []
+    db.query.return_value.join.return_value.filter.return_value.group_by.return_value.order_by.return_value.limit.return_value.all.return_value = []
     return db
 
 

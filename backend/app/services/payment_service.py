@@ -72,6 +72,28 @@ class TossPaymentService:
             resp.raise_for_status()
             return resp.json()
 
+    async def issue_billing_key(self, customer_key: str, auth_key: str) -> dict:
+        """Toss billingAuth 결과로 빌링키 발급"""
+        if not self._enabled:
+            # Mock 모드 — 개발/테스트 환경
+            return {
+                "billingKey": f"mock_billing_{customer_key}",
+                "card": {"number": f"****{auth_key[-4:] if len(auth_key) >= 4 else '1234'}", "company": "Mock카드"},
+                "_mock": True,
+            }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{self.BASE_URL}/billing/authorizations/{auth_key}",
+                json={"customerKey": customer_key},
+                headers={
+                    "Authorization": self._auth_header(),
+                    "Content-Type": "application/json",
+                },
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     def verify_webhook_signature(self, raw_body: bytes, signature: str) -> bool:
         """HMAC-SHA256 웹훅 시그니처 검증
 
@@ -82,11 +104,13 @@ class TossPaymentService:
             # 웹훅 시크릿 미설정 시 검증 통과 (개발 환경 편의)
             return True
 
-        expected = hmac.new(
+        # Toss는 HMAC-SHA256 결과를 Base64로 인코딩해 전송 — hexdigest() 아님
+        digest = hmac.new(
             settings.TOSS_WEBHOOK_SECRET.encode(),
             raw_body,
             hashlib.sha256,
-        ).hexdigest()
+        ).digest()
+        expected = base64.b64encode(digest).decode()
         return hmac.compare_digest(expected, signature)
 
 

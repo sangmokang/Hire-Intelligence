@@ -264,7 +264,9 @@ class TestAdminEndpoints:
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "success"
-        assert isinstance(body["data"], list)
+        # admin/users 응답은 paginated object (users, total, offset, limit)
+        assert isinstance(body["data"], dict)
+        assert "users" in body["data"]
 
 
 # ---------------------------------------------------------------------------

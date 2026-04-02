@@ -134,6 +134,11 @@ def update_user(
     supabase: Client = Depends(get_supabase_client),
 ):
     """사용자 역할/상태/플랜 변경 (SUPER_ADMIN 전용)"""
+    # 자기 자신의 역할 변경 방지 (프론트엔드 우회 대비)
+    if body.role is not None and str(current_user.get("id")) == user_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="자기 자신의 역할은 변경할 수 없습니다.")
+
     update_data: dict = {}
     if body.role is not None:
         update_data["role"] = body.role

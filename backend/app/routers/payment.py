@@ -1,12 +1,17 @@
 """Toss Payments 결제 라우터"""
+import asyncio
+import logging
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
 from app.database import get_db
 from app.dependencies import get_current_user, get_supabase_client
+from app.models.billing_key import BillingKey, encrypt_billing_key, decrypt_billing_key
 from app.models.payment import Payment
 from app.models.subscription import Subscription
 from app.schemas.common import ApiResponse, CamelModel
@@ -203,8 +208,21 @@ async def confirm_payment(
     db.add(new_sub)
     db.commit()
 
-    # user_profiles.plan 업데이트
-    supabase.table("user_profiles").update({"plan": plan}).eq("id", str(user_id)).execute()
+    # user_profiles.plan 업데이트 — 결제는 이미 완료됐으므로 실패해도 롤백 안 함
+    # 3회 재시도 + 지수 백오프 (0.5s, 1s, 2s)
+    for attempt in range(3):
+        try:
+            supabase.table("user_profiles").update({"plan": plan}).eq("id", str(user_id)).execute()
+            break
+        except Exception as exc:
+            if attempt < 2:
+                await asyncio.sleep(0.5 * (2 ** attempt))
+            else:
+                # 3회 모두 실패 시 경고 로그만 남기고 진행 (결제는 유효)
+                logger.warning(
+                    "Supabase user_profiles 동기화 실패 (user_id=%s, plan=%s): %s",
+                    user_id, plan, exc,
+                )
 
     return ApiResponse(
         data=ConfirmResponse(
@@ -218,9 +236,10 @@ async def confirm_payment(
 
 @router.post("/webhook")
 async def toss_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
-    """Toss 웹훅 수신 — 인증 불필요, HMAC-SHA256 시그니처 검증
+    """Toss 웹훅 수신 — 인증 미들웨어 없음, HMAC-SHA256 시그니처 검증으로 보호
 
-    PUBLIC_PATHS에 등록되어 미들웨어 인증을 건너뜀.
+    이 엔드포인트는 Depends(get_current_user) 없이 동작하며,
+    Toss가 전송하는 HMAC-SHA256 시그니처로 요청 무결성을 검증합니다.
     """
     raw_body = await request.body()
     signature = request.headers.get("TossPayments-Signature", "")
@@ -326,8 +345,17 @@ async def cancel_payment(
 
     db.commit()
 
-    # user_profiles.plan을 STARTER로 초기화
-    supabase.table("user_profiles").update({"plan": "STARTER"}).eq("id", str(user_id)).execute()
+    # user_profiles.plan을 STARTER로 초기화 (재시도 포함)
+    for attempt in range(3):
+        try:
+            supabase.table("user_profiles").update({"plan": "STARTER"}).eq("id", str(user_id)).execute()
+            break
+        except Exception as e:
+            if attempt < 2:
+                import asyncio
+                await asyncio.sleep(0.5 * (2 ** attempt))
+            else:
+                logger.warning("cancel: user_profiles 동기화 실패 (3회 재시도 소진) user_id=%s: %s", user_id, e)
 
     return ApiResponse(
         data=CancelResponse(
@@ -336,3 +364,156 @@ async def cancel_payment(
         ),
         message="결제가 취소되었습니다.",
     )
+
+
+# ── 결제 수단(빌링키) 스키마 ──────────────────────────────────────
+
+class BillingKeyRegisterRequest(CamelModel):
+    """빌링키 등록 요청"""
+    customer_key: str
+    billing_key: str
+    card_last_four: str
+    card_company: str
+
+
+class BillingKeyResponse(CamelModel):
+    """빌링키 응답"""
+    id: str
+    customer_key: str
+    card_last_four: str
+    card_company: str
+    is_default: bool
+    created_at: str
+
+
+# ── 결제 수단(빌링키) 엔드포인트 ─────────────────────────────────
+
+@router.get("/methods", response_model=ApiResponse[list[BillingKeyResponse]])
+def list_payment_methods(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[list[BillingKeyResponse]]:
+    """현재 사용자의 등록된 결제 수단 목록 조회"""
+    user_id = current_user["id"]
+    keys = (
+        db.query(BillingKey)
+        .filter(BillingKey.user_id == user_id)
+        .order_by(BillingKey.created_at.desc())
+        .all()
+    )
+    return ApiResponse(
+        data=[
+            BillingKeyResponse(
+                id=str(k.id),
+                customer_key=k.customer_key,
+                card_last_four=k.card_last_four,
+                card_company=k.card_company,
+                is_default=k.is_default,
+                created_at=k.created_at.isoformat(),
+            )
+            for k in keys
+        ]
+    )
+
+
+@router.post("/methods", response_model=ApiResponse[BillingKeyResponse])
+async def register_payment_method(
+    body: BillingKeyRegisterRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[BillingKeyResponse]:
+    """새 결제 수단(빌링키) 등록
+
+    첫 번째 카드 등록 시 자동으로 기본 결제 수단으로 설정된다.
+    """
+    user_id = current_user["id"]
+
+    # Toss 빌링키 유효성 검증 (mock 모드에서는 항상 성공)
+    try:
+        await payment_service.issue_billing_key(
+            customer_key=body.customer_key,
+            auth_key=body.billing_key,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"빌링키 발급 실패: {exc}",
+        )
+
+    # 첫 번째 카드 여부 확인 — 기본 결제 수단 자동 설정
+    existing_count = (
+        db.query(BillingKey)
+        .filter(BillingKey.user_id == user_id)
+        .count()
+    )
+    is_default = existing_count == 0
+
+    new_key = BillingKey(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        customer_key=body.customer_key,
+        billing_key=encrypt_billing_key(body.billing_key),
+        card_last_four=body.card_last_four,
+        card_company=body.card_company,
+        is_default=is_default,
+    )
+    db.add(new_key)
+    db.commit()
+    db.refresh(new_key)
+
+    return ApiResponse(
+        data=BillingKeyResponse(
+            id=str(new_key.id),
+            customer_key=new_key.customer_key,
+            card_last_four=new_key.card_last_four,
+            card_company=new_key.card_company,
+            is_default=new_key.is_default,
+            created_at=new_key.created_at.isoformat(),
+        ),
+        message="결제 수단이 등록되었습니다.",
+    )
+
+
+@router.delete("/methods/{key_id}", response_model=ApiResponse[None])
+def delete_payment_method(
+    key_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[None]:
+    """결제 수단 삭제
+
+    IDOR 방지: user_id 조건을 함께 적용하여 타인의 카드 삭제 불가.
+    기본 카드 삭제 시 가장 오래된 남은 카드를 기본으로 승격한다.
+    """
+    user_id = current_user["id"]
+
+    # IDOR 방지 — id + user_id 동시 조건
+    key = (
+        db.query(BillingKey)
+        .filter(BillingKey.id == key_id, BillingKey.user_id == user_id)
+        .first()
+    )
+    if not key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="결제 수단을 찾을 수 없습니다.",
+        )
+
+    was_default = key.is_default
+    db.delete(key)
+    db.flush()
+
+    # 기본 카드 삭제 시 가장 오래된 남은 카드를 기본으로 승격
+    if was_default:
+        oldest_remaining = (
+            db.query(BillingKey)
+            .filter(BillingKey.user_id == user_id)
+            .order_by(BillingKey.created_at.asc())
+            .first()
+        )
+        if oldest_remaining:
+            oldest_remaining.is_default = True
+
+    db.commit()
+
+    return ApiResponse(data=None, message="결제 수단이 삭제되었습니다.")

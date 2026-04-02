@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     TOSS_CLIENT_KEY: str = ""
     TOSS_WEBHOOK_SECRET: str = ""
 
+    # 빌링키 암호화 (Fernet 대칭키, cryptography.fernet.Fernet.generate_key()로 생성)
+    BILLING_KEY_ENCRYPTION_KEY: str = ""
+
     model_config = {
         "env_file": _resolve_env_file(),
         "case_sensitive": True,
