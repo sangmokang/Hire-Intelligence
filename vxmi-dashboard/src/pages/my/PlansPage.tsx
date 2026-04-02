@@ -136,9 +136,18 @@ export default function PlansPage() {
       });
       // requestPayment는 리다이렉트로 완료되므로 이후 코드는 실행되지 않음
     } catch (err: unknown) {
-      // 사용자가 결제창을 닫거나 오류 발생 시
-      const axiosData = (err as { response?: { data?: { detail?: string } } })?.response?.data;
-      const message = axiosData?.detail ?? '결제 처리 중 오류가 발생했습니다.';
+      // Toss SDK 에러 (사용자 취소 포함)
+      const tossErr = err as { code?: string; message?: string };
+      if (tossErr.code === 'PAY_PROCESS_CANCELED') {
+        return; // 사용자가 결제창을 닫음 — 무시
+      }
+      if (tossErr.code) {
+        alert(`결제 오류: ${tossErr.message ?? '알 수 없는 오류'}`);
+        return;
+      }
+      // Axios 에러 처리
+      const axiosErr = err as { response?: { data?: { detail?: string } } };
+      const message = axiosErr?.response?.data?.detail ?? '결제 처리 중 오류가 발생했습니다.';
       alert(message);
     } finally {
       setUpgradingPlan(null);

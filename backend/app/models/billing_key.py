@@ -26,6 +26,8 @@ def encrypt_billing_key(plain: str) -> str:
     """빌링키 암호화 (키 미설정 시 평문 반환 — 개발 환경용)"""
     f = _get_fernet()
     if not f:
+        if settings.APP_ENV == "production":
+            raise RuntimeError("BILLING_KEY_ENCRYPTION_KEY is required in production")
         return plain
     return f.encrypt(plain.encode()).decode()
 

@@ -5,16 +5,7 @@ import {
   type PlanStat,
   type PaymentItem,
 } from '../../services/adminApi'
-
-// 날짜 포맷 헬퍼
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-}
+import { formatDate } from '../../utils/format'
 
 // 금액 포맷 헬퍼
 function formatAmount(amount: number): string {
@@ -70,18 +61,26 @@ export function AdminBillingView() {
 
   // 플랜 요약 조회
   useEffect(() => {
-    setSummaryLoading(true)
-    setSummaryError(null)
-
-    fetchBillingSummary()
-      .then((res) => {
-        setPlanStats(res.planStats)
-        setTotalUsers(res.totalUsers)
-      })
-      .catch((err: unknown) => {
-        setSummaryError(err instanceof Error ? err.message : '요약 데이터를 불러오지 못했습니다.')
-      })
-      .finally(() => setSummaryLoading(false))
+    let cancelled = false
+    const load = async () => {
+      setSummaryLoading(true)
+      setSummaryError(null)
+      try {
+        const res = await fetchBillingSummary()
+        if (!cancelled) {
+          setPlanStats(res.planStats)
+          setTotalUsers(res.totalUsers)
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setSummaryError(err instanceof Error ? err.message : '요약 데이터를 불러오지 못했습니다.')
+        }
+      } finally {
+        if (!cancelled) setSummaryLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
   }, [])
 
   // 결제 내역 조회 (offset 변경 시 재조회)

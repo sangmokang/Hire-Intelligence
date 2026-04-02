@@ -17,6 +17,8 @@ class TossPaymentService:
         self.secret_key = settings.TOSS_SECRET_KEY
         # TOSS_SECRET_KEY 미설정 시 목(mock) 모드로 동작
         self._enabled = bool(self.secret_key)
+        if not self._enabled and settings.APP_ENV == "production":
+            raise RuntimeError("TOSS_SECRET_KEY must be set in production environment")
 
     def _auth_header(self) -> str:
         """Basic 인증 헤더 값 반환 (secret_key + ':' base64 인코딩)"""
@@ -101,7 +103,9 @@ class TossPaymentService:
         'TossPayments-Signature' 헤더로 전송한다.
         """
         if not settings.TOSS_WEBHOOK_SECRET:
-            # 웹훅 시크릿 미설정 시 검증 통과 (개발 환경 편의)
+            if settings.APP_ENV == "production":
+                raise ValueError("TOSS_WEBHOOK_SECRET must be configured in production")
+            # 개발 환경 편의: 시크릿 미설정 시 검증 통과
             return True
 
         # Toss는 HMAC-SHA256 결과를 Base64로 인코딩해 전송 — hexdigest() 아님

@@ -1,10 +1,12 @@
 """Toss Payments 결제 라우터"""
 import asyncio
+import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -58,13 +60,26 @@ class ConfirmResponse(CamelModel):
 class CancelRequest(CamelModel):
     """결제 취소 요청"""
     payment_key: str
-    cancel_reason: str = "사용자 요청"
+    cancel_reason: str = Field(default="사용자 요청", max_length=200)
 
 
 class CancelResponse(CamelModel):
     """결제 취소 응답"""
     payment_id: str
     status: str
+
+
+async def _sync_user_plan(supabase, user_id: str, plan: str, context: str) -> None:
+    """user_profiles.plan 동기화 (3회 재시도)"""
+    for attempt in range(3):
+        try:
+            supabase.table("user_profiles").update({"plan": plan}).eq("id", user_id).execute()
+            return
+        except Exception as e:
+            if attempt < 2:
+                await asyncio.sleep(0.5 * (2 ** attempt))
+            else:
+                logger.warning("%s: user_profiles 동기화 실패 (3회 소진) user_id=%s: %s", context, user_id, e)
 
 
 # ── 엔드포인트 ────────────────────────────────────────────────────
@@ -123,10 +138,11 @@ async def confirm_payment(
     """
     user_id = current_user["id"]
 
-    # order_id로 pending 결제 레코드 조회
+    # order_id로 결제 레코드 조회 (race condition 방지: FOR UPDATE 락)
     payment = (
         db.query(Payment)
         .filter(Payment.order_id == body.order_id, Payment.user_id == user_id)
+        .with_for_update()
         .first()
     )
     if not payment:
@@ -155,6 +171,13 @@ async def confirm_payment(
             )
         )
 
+    # pending/paid 이외의 상태는 처리 불가 (failed, cancelled 등)
+    if payment.status not in ("pending", "paid"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"결제 확인이 불가능한 상태입니다: {payment.status}",
+        )
+
     # 금액 검증 — 변조 방지
     if payment.amount != body.amount:
         raise HTTPException(
@@ -170,12 +193,13 @@ async def confirm_payment(
             amount=body.amount,
         )
     except Exception as exc:
-        # Toss API 오류 → 결제 실패 처리
+        # Toss API 오류 → 결제 실패 처리 (상세 에러는 로그, 응답은 generic)
+        logger.error("Toss 결제 승인 실패 (order_id=%s): %s", body.order_id, exc)
         payment.status = "failed"
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Toss 결제 승인 실패: {exc}",
+            detail="결제 처리 중 오류가 발생했습니다.",
         )
 
     now = datetime.now(timezone.utc)
@@ -206,23 +230,24 @@ async def confirm_payment(
         started_at=now,
     )
     db.add(new_sub)
-    db.commit()
+
+    # 보상 트랜잭션: DB 커밋 실패 시 Toss 결제 취소 시도
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.critical(
+            "결제 승인 후 DB 커밋 실패 — 보상 취소 시도: user_id=%s, payment_key=%s",
+            user_id, body.payment_key,
+        )
+        try:
+            await payment_service.cancel_payment(body.payment_key, "DB 커밋 실패로 인한 자동 취소")
+        except Exception:
+            logger.critical("보상 취소도 실패 — 수동 개입 필요: payment_key=%s", body.payment_key)
+        raise HTTPException(status_code=500, detail="결제 처리 중 오류가 발생했습니다.")
 
     # user_profiles.plan 업데이트 — 결제는 이미 완료됐으므로 실패해도 롤백 안 함
-    # 3회 재시도 + 지수 백오프 (0.5s, 1s, 2s)
-    for attempt in range(3):
-        try:
-            supabase.table("user_profiles").update({"plan": plan}).eq("id", str(user_id)).execute()
-            break
-        except Exception as exc:
-            if attempt < 2:
-                await asyncio.sleep(0.5 * (2 ** attempt))
-            else:
-                # 3회 모두 실패 시 경고 로그만 남기고 진행 (결제는 유효)
-                logger.warning(
-                    "Supabase user_profiles 동기화 실패 (user_id=%s, plan=%s): %s",
-                    user_id, plan, exc,
-                )
+    await _sync_user_plan(supabase, str(user_id), plan, "confirm")
 
     return ApiResponse(
         data=ConfirmResponse(
@@ -251,7 +276,6 @@ async def toss_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
             detail="웹훅 시그니처 검증 실패",
         )
 
-    import json
     try:
         payload = json.loads(raw_body)
     except json.JSONDecodeError:
@@ -277,6 +301,25 @@ async def toss_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
             payment.payment_key = payment_key
             payment.status = "paid"
             payment.paid_at = now
+            # confirm 실패 시 웹훅으로 구독 보완 생성
+            existing_sub = db.query(Subscription).filter(
+                Subscription.user_id == payment.user_id,
+                Subscription.payment_key == payment_key,
+            ).first()
+            if not existing_sub:
+                # PLAN_AMOUNTS에서 플랜 역매핑
+                amount_to_plan = {v: k for k, v in PLAN_AMOUNTS.items()}
+                plan = amount_to_plan.get(payment.amount, "PRO")
+                new_sub = Subscription(
+                    id=uuid.uuid4(),
+                    user_id=payment.user_id,
+                    plan=plan,
+                    status="active",
+                    payment_key=payment_key,
+                    started_at=now,
+                    expires_at=now + timedelta(days=30),
+                )
+                db.add(new_sub)
         elif toss_status == "CANCELED" and payment.status != "cancelled":
             payment.status = "cancelled"
             payment.cancelled_at = now
@@ -325,9 +368,10 @@ async def cancel_payment(
             cancel_reason=body.cancel_reason,
         )
     except Exception as exc:
+        logger.error("Toss 결제 취소 실패 (payment_key=%s): %s", body.payment_key, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Toss 결제 취소 실패: {exc}",
+            detail="결제 처리 중 오류가 발생했습니다.",
         )
 
     now = datetime.now(timezone.utc)
@@ -346,16 +390,7 @@ async def cancel_payment(
     db.commit()
 
     # user_profiles.plan을 STARTER로 초기화 (재시도 포함)
-    for attempt in range(3):
-        try:
-            supabase.table("user_profiles").update({"plan": "STARTER"}).eq("id", str(user_id)).execute()
-            break
-        except Exception as e:
-            if attempt < 2:
-                import asyncio
-                await asyncio.sleep(0.5 * (2 ** attempt))
-            else:
-                logger.warning("cancel: user_profiles 동기화 실패 (3회 재시도 소진) user_id=%s: %s", user_id, e)
+    await _sync_user_plan(supabase, str(user_id), "STARTER", "cancel")
 
     return ApiResponse(
         data=CancelResponse(
@@ -428,6 +463,15 @@ async def register_payment_method(
     """
     user_id = current_user["id"]
 
+    # 중복 결제 수단 등록 방지
+    existing = db.query(BillingKey).filter(
+        BillingKey.user_id == user_id,
+        BillingKey.card_last_four == body.card_last_four,
+        BillingKey.card_company == body.card_company,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="이미 등록된 결제 수단입니다.")
+
     # Toss 빌링키 유효성 검증 (mock 모드에서는 항상 성공)
     try:
         await payment_service.issue_billing_key(
@@ -487,10 +531,16 @@ def delete_payment_method(
     """
     user_id = current_user["id"]
 
+    # key_id UUID 형식 검증
+    try:
+        key_uuid = uuid.UUID(key_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 결제 수단 ID 형식입니다.")
+
     # IDOR 방지 — id + user_id 동시 조건
     key = (
         db.query(BillingKey)
-        .filter(BillingKey.id == key_id, BillingKey.user_id == user_id)
+        .filter(BillingKey.id == key_uuid, BillingKey.user_id == user_id)
         .first()
     )
     if not key:

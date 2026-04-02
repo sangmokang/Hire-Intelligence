@@ -7,18 +7,7 @@ import {
   type AdminUserUpdateRequest,
 } from '../../services/adminApi'
 import { useAuthStore } from '../../stores/authStore'
-
-// 날짜 포맷 헬퍼
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatDate } from '../../utils/format'
 
 // 정보 행 컴포넌트
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -85,8 +74,8 @@ export function AdminUserDetailView() {
     setSaveSuccess(false)
 
     const payload: AdminUserUpdateRequest = {}
-    // 변경된 항목만 전송
-    if (editRole !== user.role) payload.role = editRole
+    // 변경된 항목만 전송 — isSelf면 role 제외
+    if (editRole !== user.role && !isSelf) payload.role = editRole
     if (editStatus !== user.status) payload.status = editStatus
     if (editPlan !== user.plan) payload.plan = editPlan
 

@@ -22,7 +22,7 @@ def upgrade():
         sa.Column('id', UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column('user_id', UUID(as_uuid=True), nullable=False),
         sa.Column('customer_key', sa.String(100), nullable=False),
-        sa.Column('billing_key', sa.String(200), nullable=False),
+        sa.Column('billing_key', sa.String(400), nullable=False),
         sa.Column('card_last_four', sa.String(4), nullable=False),
         sa.Column('card_company', sa.String(50), nullable=False),
         sa.Column('is_default', sa.Boolean(), nullable=False, server_default='false'),

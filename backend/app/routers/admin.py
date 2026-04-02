@@ -1,6 +1,8 @@
+import logging
+import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, distinct
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,8 @@ from supabase import Client
 from app.database import get_db
 from app.dependencies import get_supabase_client
 from app.middleware.rbac import require_super_admin
+
+logger = logging.getLogger(__name__)
 from app.schemas.admin import (
     AnomalyItem, CrawlStatusResponse, DataQualityResponse, WeeklyCollectionStats,
     AdminUserDetail, AdminUserListResponse, AdminUserUpdateRequest,
@@ -76,6 +80,12 @@ def get_user_detail(
     db: Session = Depends(get_db),
 ):
     """사용자 상세 정보 + 구독 이력 (SUPER_ADMIN 전용)"""
+    # user_id UUID 형식 검증
+    try:
+        uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 사용자 ID 형식입니다.")
+
     result = (
         supabase.table("user_profiles")
         .select("id, email, name, company, job_title, role, status, plan, login_count, last_login_at, created_at")
@@ -84,7 +94,6 @@ def get_user_detail(
         .execute()
     )
     if not result.data:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
     r = result.data
@@ -93,17 +102,16 @@ def get_user_detail(
     sub_plan = sub_status = sub_started = sub_expires = None
     try:
         from app.models.subscription import Subscription
-        import uuid as _uuid
         sub = db.query(Subscription).filter(
-            Subscription.user_id == _uuid.UUID(user_id)
+            Subscription.user_id == uuid.UUID(user_id)
         ).order_by(Subscription.created_at.desc()).first()
         if sub:
             sub_plan = sub.plan
             sub_status = sub.status
             sub_started = sub.started_at.isoformat() if sub.started_at else None
             sub_expires = sub.expires_at.isoformat() if sub.expires_at else None
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("구독 이력 조회 실패 (user_id=%s): %s", user_id, e)
 
     return ApiResponse(
         data=AdminUserDetail(
@@ -134,9 +142,14 @@ def update_user(
     supabase: Client = Depends(get_supabase_client),
 ):
     """사용자 역할/상태/플랜 변경 (SUPER_ADMIN 전용)"""
+    # user_id UUID 형식 검증
+    try:
+        uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 사용자 ID 형식입니다.")
+
     # 자기 자신의 역할 변경 방지 (프론트엔드 우회 대비)
     if body.role is not None and str(current_user.get("id")) == user_id:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="자기 자신의 역할은 변경할 수 없습니다.")
 
     update_data: dict = {}
@@ -148,7 +161,6 @@ def update_user(
         update_data["plan"] = body.plan
 
     if not update_data:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="변경할 항목이 없습니다.")
 
     result = (
@@ -159,7 +171,6 @@ def update_user(
     )
     rows = result.data or []
     if not rows:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
     r = rows[0]

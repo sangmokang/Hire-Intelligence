@@ -36,12 +36,14 @@ from app.middleware.usage_tracker import UsageTrackerMiddleware
 from app.schemas.common import ApiError
 from app.scheduler import lifespan
 
+_is_prod = settings.APP_ENV == "production"
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="VXMI 채용 인텔리전스 플랫폼 API",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if _is_prod else "/docs",
+    redoc_url=None if _is_prod else "/redoc",
+    openapi_url=None if _is_prod else "/openapi.json",
     lifespan=lifespan,  # 스케줄러 라이프사이클 연동
 )
 

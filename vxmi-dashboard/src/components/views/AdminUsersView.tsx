@@ -5,16 +5,7 @@ import {
   type AdminUserDetail,
   type AdminUserListParams,
 } from '../../services/adminApi'
-
-// 날짜 포맷 헬퍼
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-}
+import { formatDate } from '../../utils/format'
 
 // 역할 배지 색상
 function RoleBadge({ role }: { role: string }) {
@@ -75,11 +66,6 @@ export function AdminUsersView() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 필터 변경 시 offset 초기화
-  useEffect(() => {
-    setOffset(0)
-  }, [roleFilter, planFilter, statusFilter])
-
   // 유저 목록 조회
   useEffect(() => {
     let cancelled = false
@@ -127,7 +113,7 @@ export function AdminUsersView() {
           <span className="text-xs text-gray-500">역할</span>
           <select
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
+            onChange={(e) => { setRoleFilter(e.target.value); setOffset(0) }}
             className="text-xs px-2 py-1.5 border border-gray-200 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300"
           >
             <option value="">전체</option>
@@ -142,7 +128,7 @@ export function AdminUsersView() {
           <span className="text-xs text-gray-500">플랜</span>
           <select
             value={planFilter}
-            onChange={(e) => setPlanFilter(e.target.value)}
+            onChange={(e) => { setPlanFilter(e.target.value); setOffset(0) }}
             className="text-xs px-2 py-1.5 border border-gray-200 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300"
           >
             <option value="">전체</option>
@@ -157,7 +143,7 @@ export function AdminUsersView() {
           <span className="text-xs text-gray-500">상태</span>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setOffset(0) }}
             className="text-xs px-2 py-1.5 border border-gray-200 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300"
           >
             <option value="">전체</option>
@@ -170,7 +156,7 @@ export function AdminUsersView() {
         {/* 초기화 버튼 */}
         {(roleFilter || planFilter || statusFilter) && (
           <button
-            onClick={() => { setRoleFilter(''); setPlanFilter(''); setStatusFilter('') }}
+            onClick={() => { setRoleFilter(''); setPlanFilter(''); setStatusFilter(''); setOffset(0) }}
             className="mt-4 text-xs px-3 py-1.5 bg-white border border-gray-200 text-gray-500 rounded-md hover:bg-gray-100 transition-colors"
           >
             초기화

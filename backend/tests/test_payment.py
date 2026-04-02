@@ -170,9 +170,9 @@ class TestConfirmPayment:
 
     def test_confirm_payment_success(self, mock_user, mock_db, mock_supabase):
         """준비→확인 플로우 (목 모드) → 200, paid 반환"""
-        # pending 결제 레코드 mock
+        # pending 결제 레코드 mock (with_for_update() 체인 포함)
         pending = _make_payment(amount=49000, status="pending")
-        mock_db.query.return_value.filter.return_value.first.return_value = pending
+        mock_db.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = pending
 
         # 구독 update chain mock
         mock_db.query.return_value.filter.return_value.update.return_value = 1
@@ -201,7 +201,8 @@ class TestConfirmPayment:
         def side_effect_query(model):
             m = MagicMock()
             if model.__name__ == "Payment":
-                m.filter.return_value.first.return_value = paid
+                # with_for_update() 체인 지원
+                m.filter.return_value.with_for_update.return_value.first.return_value = paid
             else:
                 m.filter.return_value.first.return_value = sub
             return m
@@ -223,7 +224,7 @@ class TestConfirmPayment:
     def test_confirm_payment_amount_mismatch(self, mock_user, mock_db, mock_supabase):
         """결제 금액 불일치 → 400"""
         pending = _make_payment(amount=49000, status="pending")
-        mock_db.query.return_value.filter.return_value.first.return_value = pending
+        mock_db.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = pending
 
         response = client.post(
             "/api/v1/payments/confirm",
