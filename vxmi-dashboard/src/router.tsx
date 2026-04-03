@@ -36,6 +36,8 @@ import { MarketSignalsView } from './components/views/MarketSignalsView';
 // Sprint 7 views - lazy loaded
 const OppAlertView = lazy(() => import('./components/views/OppAlertView').then(m => ({ default: m.OppAlertView })));
 const CandidateProfilerView = lazy(() => import('./components/views/CandidateProfilerView').then(m => ({ default: m.CandidateProfilerView })));
+const MarketValueView = lazy(() => import('./components/views/MarketValueView').then(m => ({ default: m.MarketValueView })));
+const TdsSimulatorView = lazy(() => import('./components/views/TdsSimulatorView').then(m => ({ default: m.TdsSimulatorView })));
 
 // Admin views - lazy loaded
 const AdminUsersView = lazy(() => import('./components/views/AdminUsersView').then(m => ({ default: m.AdminUsersView })));
@@ -101,6 +103,8 @@ export const router = createBrowserRouter([
       { path: '/dashboard/market-signals', element: <MarketSignalsView /> },
       { path: '/dashboard/opp-alert', element: <Suspense fallback={null}><OppAlertView /></Suspense> },
       { path: '/dashboard/candidate-profiler', element: <Suspense fallback={null}><CandidateProfilerView /></Suspense> },
+      { path: '/dashboard/market-value', element: <Suspense fallback={null}><MarketValueView /></Suspense> },
+      { path: '/dashboard/tds-simulator', element: <Suspense fallback={null}><TdsSimulatorView /></Suspense> },
       { path: '/dashboard/timeline', element: (
         <PlanGuard requiredPlan="PRO">
           <CompanyTimelineView />
@@ -222,6 +226,8 @@ export const router = createBrowserRouter([
 
   // Landing page (public)
   { path: '/', element: <LandingPage /> },
+  // /pricing → 랜딩페이지 (요금제 섹션 포함)
+  { path: '/pricing', element: <LandingPage /> },
 
   // 404
   {
