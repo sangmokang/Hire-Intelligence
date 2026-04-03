@@ -26,12 +26,31 @@ class CompanyDnaService:
     #  세그먼트 결정
     # ------------------------------------------------------------------ #
 
-    def resolve_segment_id(self, company_id: uuid.UUID) -> str | None:
+    def resolve_segment_id(self, company_id: uuid.UUID, preloaded: list | None = None) -> str | None:
         """세그먼트 결정 규칙 (ADR-2):
         1. 최근 12주 jd_analyses에서 가장 많은 COUNT(*)를 가진 segment_id
         2. 없으면 Company.segment_id
         3. 둘 다 null이면 None (skip)
+
+        preloaded: 인메모리 JdAnalysis 목록이 주어지면 DB 쿼리 생략
         """
+        if preloaded is not None:
+            # 인메모리 계산 — 최근 12주 week 필터링 후 segment_id 빈도 집계
+            weeks_sorted = sorted({a.week for a in preloaded if a.week is not None}, reverse=True)
+            recent_week_set = set(weeks_sorted[:12])
+            seg_counter: Counter = Counter(
+                a.segment_id
+                for a in preloaded
+                if a.segment_id and a.week in recent_week_set
+            )
+            if seg_counter:
+                return seg_counter.most_common(1)[0][0]
+            # fallback: Company.segment_id
+            company = self.db.query(Company.segment_id).filter(Company.id == company_id).first()
+            if company and company.segment_id:
+                return company.segment_id
+            return None
+
         # 최근 12주 week 서브쿼리
         recent_weeks = (
             self.db.query(JdAnalysis.week)
@@ -72,22 +91,27 @@ class CompanyDnaService:
     #  Tech DNA
     # ------------------------------------------------------------------ #
 
-    def _compute_tech_dna(self, company_id: uuid.UUID) -> dict:
+    def _compute_tech_dna(self, company_id: uuid.UUID, preloaded: list | None = None) -> dict:
         """Tech DNA 계산 — Shannon diversity index + top techs
 
         tech_stacks = DISTINCT(jd_analyses.tech_stacks) for company
         tech_diversity_index = -SUM(p_i * ln(p_i))  # Shannon entropy
         Guard: < 2 unique techs → diversity_index = 0
+
+        preloaded: 인메모리 JdAnalysis 목록이 주어지면 DB 쿼리 생략
         """
-        analyses = (
-            self.db.query(JdAnalysis.tech_stacks)
-            .filter(
-                JdAnalysis.company_id == company_id,
-                JdAnalysis.parsed_at.isnot(None),
-                JdAnalysis.tech_stacks.isnot(None),
+        if preloaded is not None:
+            analyses = [a for a in preloaded if a.tech_stacks is not None]
+        else:
+            analyses = (
+                self.db.query(JdAnalysis.tech_stacks)
+                .filter(
+                    JdAnalysis.company_id == company_id,
+                    JdAnalysis.parsed_at.isnot(None),
+                    JdAnalysis.tech_stacks.isnot(None),
+                )
+                .all()
             )
-            .all()
-        )
 
         # 전체 기술 스택 빈도 계산
         tech_counter: Counter[str] = Counter()
@@ -123,12 +147,51 @@ class CompanyDnaService:
     #  Hiring DNA
     # ------------------------------------------------------------------ #
 
-    def _compute_hiring_dna(self, company_id: uuid.UUID) -> dict:
+    def _compute_hiring_dna(self, company_id: uuid.UUID, preloaded: list | None = None) -> dict:
         """Hiring DNA 계산 — growth velocity + role distribution
 
         growth_velocity: linear regression slope of weekly posting counts (last 4 weeks)
         If < 4 weeks of data → growth_velocity = None, growth_label = "데이터 부족"
+
+        preloaded: 인메모리 JdAnalysis 목록이 주어지면 DB 쿼리 생략
         """
+        if preloaded is not None:
+            # 주간 공고 수 인메모리 집계
+            week_counter: Counter = Counter(a.week for a in preloaded if a.week is not None)
+            weekly_counts_sorted = sorted(week_counter.items())  # [(week, cnt), ...]
+            total_postings = sum(week_counter.values())
+
+            # growth velocity — 마지막 4주 데이터에 대한 선형 회귀
+            growth_velocity = None
+            if len(weekly_counts_sorted) >= 4:
+                last4 = weekly_counts_sorted[-4:]
+                n = 4
+                xs = list(range(n))
+                ys = [cnt for _, cnt in last4]
+                sum_x = sum(xs)
+                sum_y = sum(ys)
+                sum_xy = sum(x * y for x, y in zip(xs, ys))
+                sum_x2 = sum(x * x for x in xs)
+                denom = n * sum_x2 - sum_x * sum_x
+                if denom != 0:
+                    growth_velocity = round((n * sum_xy - sum_x * sum_y) / denom, 4)
+
+            # 경력 수준 분포
+            role_level_dist: dict = {}
+            for a in preloaded:
+                if a.role_level:
+                    role_level_dist[a.role_level] = role_level_dist.get(a.role_level, 0) + 1
+
+            # 세그먼트 다양성
+            seg_count = len({a.segment_id for a in preloaded if a.segment_id})
+
+            return {
+                "total_postings": total_postings,
+                "growth_velocity": growth_velocity,
+                "role_level_dist": role_level_dist,
+                "segment_breadth": seg_count,
+            }
+
         # 최근 12주 주간 공고 수 (JdAnalysis 기준)
         weekly_counts = (
             self.db.query(
@@ -196,21 +259,26 @@ class CompanyDnaService:
     #  Compensation DNA
     # ------------------------------------------------------------------ #
 
-    def _compute_compensation_dna(self, company_id: uuid.UUID) -> dict:
+    def _compute_compensation_dna(self, company_id: uuid.UUID, preloaded: list | None = None) -> dict:
         """Compensation DNA 계산 — salary + equity + benefits
 
         salary_avg = AVG((salary_min + salary_max) / 2) where not null
         has_equity_ratio = COUNT(has_equity=true) / total
         position_label thresholds: >= 75 → "상위 25%", >= 40 → "평균 수준", < 40 → "하위 40%"
+
+        preloaded: 인메모리 JdAnalysis 목록이 주어지면 DB 쿼리 생략
         """
-        analyses = (
-            self.db.query(JdAnalysis)
-            .filter(
-                JdAnalysis.company_id == company_id,
-                JdAnalysis.parsed_at.isnot(None),
+        if preloaded is not None:
+            analyses = preloaded
+        else:
+            analyses = (
+                self.db.query(JdAnalysis)
+                .filter(
+                    JdAnalysis.company_id == company_id,
+                    JdAnalysis.parsed_at.isnot(None),
+                )
+                .all()
             )
-            .all()
-        )
 
         if not analyses:
             return {
@@ -274,21 +342,26 @@ class CompanyDnaService:
     #  Culture Signals
     # ------------------------------------------------------------------ #
 
-    def _compute_culture_signals(self, company_id: uuid.UUID) -> dict:
+    def _compute_culture_signals(self, company_id: uuid.UUID, preloaded: list | None = None) -> dict:
         """Culture Signals 계산
 
         growth_stage = MODE(parsed_data.org_signals.growth_stage)
         new_position_ratio = COUNT(is_new_position=true) / total
         culture_score = benefits_count_normalized * 0.4 + new_position_ratio * 0.3 + has_equity_ratio * 0.3
+
+        preloaded: 인메모리 JdAnalysis 목록이 주어지면 DB 쿼리 생략
         """
-        analyses = (
-            self.db.query(JdAnalysis.parsed_data)
-            .filter(
-                JdAnalysis.company_id == company_id,
-                JdAnalysis.parsed_at.isnot(None),
+        if preloaded is not None:
+            analyses = preloaded
+        else:
+            analyses = (
+                self.db.query(JdAnalysis.parsed_data)
+                .filter(
+                    JdAnalysis.company_id == company_id,
+                    JdAnalysis.parsed_at.isnot(None),
+                )
+                .all()
             )
-            .all()
-        )
 
         if not analyses:
             return {
@@ -342,19 +415,21 @@ class CompanyDnaService:
     #  DNA 스냅샷 계산 + Upsert
     # ------------------------------------------------------------------ #
 
-    def compute_dna_snapshot(self, company_id: uuid.UUID, week: str) -> dict | None:
+    def compute_dna_snapshot(self, company_id: uuid.UUID, week: str, preloaded: list | None = None) -> dict | None:
         """단일 기업의 DNA 스냅샷 계산 — jd_analyses 기반
         Uses INSERT ... ON CONFLICT (company_id, week) DO UPDATE
         Returns the computed snapshot dict or None if company should be skipped
+
+        preloaded: refresh_all에서 배치 조회된 JdAnalysis 목록 (None이면 개별 DB 쿼리)
         """
-        segment_id = self.resolve_segment_id(company_id)
+        segment_id = self.resolve_segment_id(company_id, preloaded=preloaded)
         if not segment_id:
             return None
 
-        tech = self._compute_tech_dna(company_id)
-        hiring = self._compute_hiring_dna(company_id)
-        comp = self._compute_compensation_dna(company_id)
-        culture = self._compute_culture_signals(company_id)
+        tech = self._compute_tech_dna(company_id, preloaded=preloaded)
+        hiring = self._compute_hiring_dna(company_id, preloaded=preloaded)
+        comp = self._compute_compensation_dna(company_id, preloaded=preloaded)
+        culture = self._compute_culture_signals(company_id, preloaded=preloaded)
 
         # culture_score 계산
         # benefits_count를 0~1로 정규화 (10개 이상이면 1.0)
@@ -500,13 +575,16 @@ class CompanyDnaService:
 
         Order of operations:
         1. Get all company_ids that have jd_analyses
-        2. Compute raw DNA snapshot for each company
-        3. THEN compute segment percentiles (must be after all raw snapshots)
-        4. THEN update overall_dna_score with percentile-based values
+        2. Batch-load all JdAnalysis rows in a single query (O(1) DB round-trip)
+        3. Compute raw DNA snapshot for each company using in-memory data
+        4. THEN compute segment percentiles (must be after all raw snapshots)
+        5. THEN update overall_dna_score with percentile-based values
 
         Uses ON CONFLICT DO UPDATE for idempotency.
         Returns stats dict {total_companies, computed, skipped, errors}
         """
+        from sqlalchemy.orm import load_only
+
         # 1. JD 분석이 존재하는 모든 기업 조회
         company_rows = (
             self.db.query(distinct(JdAnalysis.company_id))
@@ -518,13 +596,41 @@ class CompanyDnaService:
         )
         company_ids = [r[0] for row in company_rows for r in [row]]
 
+        # 2. 배치 조회 — 필요한 컬럼만 한 번에 로드 (800+ 개별 쿼리 → 1개 쿼리)
+        all_analyses = (
+            self.db.query(JdAnalysis)
+            .filter(
+                JdAnalysis.company_id.in_(company_ids),
+                JdAnalysis.parsed_at.isnot(None),
+            )
+            .options(
+                load_only(
+                    JdAnalysis.company_id,
+                    JdAnalysis.segment_id,
+                    JdAnalysis.week,
+                    JdAnalysis.tech_stacks,
+                    JdAnalysis.role_level,
+                    JdAnalysis.salary_min,
+                    JdAnalysis.salary_max,
+                    JdAnalysis.parsed_data,
+                )
+            )
+            .all()
+        )
+
+        # company_id → list[JdAnalysis] 인메모리 인덱스 구성
+        from collections import defaultdict
+        analyses_by_company: dict = defaultdict(list)
+        for a in all_analyses:
+            analyses_by_company[a.company_id].append(a)
+
         stats = {"total_companies": len(company_ids), "computed": 0, "skipped": 0, "errors": 0}
         computed_segments: set[str] = set()
 
-        # 2. 각 기업별 raw 스냅샷 계산
+        # 3. 각 기업별 raw 스냅샷 계산 (인메모리 데이터 사용)
         for cid in company_ids:
             try:
-                result = self.compute_dna_snapshot(cid, week)
+                result = self.compute_dna_snapshot(cid, week, preloaded=analyses_by_company.get(cid, []))
                 if result:
                     stats["computed"] += 1
                     computed_segments.add(result["segment_id"])
@@ -534,7 +640,7 @@ class CompanyDnaService:
                 logger.exception("DNA snapshot 계산 실패: company_id=%s", cid)
                 stats["errors"] += 1
 
-        # 3. 세그먼트별 백분위 계산 (모든 raw 스냅샷 이후)
+        # 4. 세그먼트별 백분위 계산 (모든 raw 스냅샷 이후)
         for seg_id in computed_segments:
             try:
                 self.compute_segment_percentiles(seg_id, week)

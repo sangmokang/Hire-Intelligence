@@ -446,10 +446,13 @@ def billing_payments(
             )
             for p in rows
         ]
-    except (ImportError, Exception):
+    except ImportError:
         # Payment 모델이 아직 없거나 테이블 미존재 시 빈 결과
         payments = []
         total = 0
+    except Exception as e:
+        logger.error("결제 내역 조회 실패: %s", e)
+        raise HTTPException(status_code=500, detail="결제 내역 조회에 실패했습니다.")
 
     return ApiResponse(
         data=BillingPaymentsResponse(payments=payments, total=total, offset=offset, limit=limit)

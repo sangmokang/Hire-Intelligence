@@ -147,6 +147,26 @@ async def weekly_dna_refresh_job():
         db.close()
 
 
+async def daily_expert_reflector_job():
+    """매일 04:00 KST — RLVR Reflector 실행"""
+    from app.database import SessionLocal
+    from app.services.expert_panel.reflector import ExpertReflector
+
+    if SessionLocal is None:
+        logger.error("DATABASE_URL 미설정 — Reflector 건너뜀")
+        return
+
+    db = SessionLocal()
+    try:
+        reflector = ExpertReflector(db)
+        result = reflector.run()
+        logger.info(f"Expert Reflector 완료: {result}")
+    except Exception as e:
+        logger.error(f"Expert Reflector 실패: {e}")
+    finally:
+        db.close()
+
+
 async def weekly_report_job():
     """매주 월요일 07:00 KST — 주간 채용 트렌드 리포트 발송"""
     from app.database import SessionLocal
@@ -198,6 +218,16 @@ def init_scheduler():
         replace_existing=True,
     )
     logger.info("주간 리포트 스케줄 등록: 매주 월요일 07:00 KST")
+
+    # 매일 04:00 KST — Expert Panel RLVR Reflector
+    scheduler.add_job(
+        daily_expert_reflector_job,
+        CronTrigger(hour=4, minute=0, timezone="Asia/Seoul"),
+        id="expert_reflector",
+        name="Expert Panel RLVR Reflector",
+        replace_existing=True,
+    )
+    logger.info("Expert Reflector 스케줄 등록: 매일 04:00 KST")
 
 
 @asynccontextmanager

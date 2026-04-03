@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_NAME: str = "VXMI Hire Intelligence API"
     APP_VERSION: str = "0.1.0"
-    DEBUG: bool = True
+    DEBUG: bool = False  # 보안 기본값: False, 개발 환경은 .env에서 DEBUG=True 명시
 
     # Supabase 설정
     SUPABASE_URL: str = ""
@@ -70,6 +70,18 @@ class Settings(BaseSettings):
     ACTION_PANEL_MODEL: str = "claude-haiku-4-5-20251001"
     ACTION_PANEL_TIMEOUT: int = 3
     ACTION_PANEL_CACHE_TTL: int = 600
+
+    # Expert Panel 설정
+    EXPERT_PANEL_CLASSIFIER_MODEL: str = "claude-haiku-4-5-20251001"
+    EXPERT_PANEL_RESPONSE_MODEL: str = "claude-sonnet-4-20250514"
+    EXPERT_PANEL_TIMEOUT: int = 15
+    EXPERT_PANEL_CACHE_TTL: int = 3600
+    EXPERT_PANEL_MAX_CONTEXT_SIZE: int = 4096
+    EXPERT_PANEL_MAX_EXPERTS: int = 4
+    EXPERT_DAILY_LIMIT_STARTER: int = 5
+    EXPERT_DAILY_LIMIT_PRO: int = 50
+    EXPERT_DAILY_LIMIT_ENTERPRISE: int = -1
+    EXPERT_REFLECTOR_MIN_FEEDBACKS: int = 10
 
     # Redis 캐시 (P3)
     REDIS_URL: str = ""

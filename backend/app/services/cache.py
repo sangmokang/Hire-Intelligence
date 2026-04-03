@@ -101,11 +101,19 @@ class CacheService:
         """프리픽스로 시작하는 모든 키 삭제. 삭제된 키 수 반환."""
         try:
             if self._using_redis:
-                keys = self._redis.keys(f"{prefix}*")
-                if keys:
-                    self._redis.delete(*keys)
-                    logger.debug("캐시 무효화: prefix=%s, 삭제된 키 수=%d", prefix, len(keys))
-                return len(keys)
+                # KEYS 대신 SCAN 이터레이터 사용 — 전체 키스페이스 블로킹 방지
+                count = 0
+                cursor = 0
+                while True:
+                    cursor, keys = self._redis.scan(cursor, match=f"{prefix}*", count=100)
+                    if keys:
+                        self._redis.delete(*keys)
+                        count += len(keys)
+                    if cursor == 0:
+                        break
+                if count:
+                    logger.debug("캐시 무효화: prefix=%s, 삭제된 키 수=%d", prefix, count)
+                return count
             else:
                 keys_to_delete = [k for k in list(self._memory_cache.keys()) if str(k).startswith(prefix)]
                 for k in keys_to_delete:

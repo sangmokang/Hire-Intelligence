@@ -105,8 +105,9 @@ class TossPaymentService:
         if not settings.TOSS_WEBHOOK_SECRET:
             if settings.APP_ENV == "production":
                 raise ValueError("TOSS_WEBHOOK_SECRET must be configured in production")
-            # 개발 환경 편의: 시크릿 미설정 시 검증 통과
-            return True
+            import logging as _logging
+            _logging.getLogger(__name__).warning("웹훅 거부: TOSS_WEBHOOK_SECRET 미설정")
+            return False  # 보안 기본값: 거부
 
         # Toss는 HMAC-SHA256 결과를 Base64로 인코딩해 전송 — hexdigest() 아님
         digest = hmac.new(

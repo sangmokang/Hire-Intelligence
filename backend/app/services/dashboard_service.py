@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, timedelta
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 from sqlalchemy import func, desc
 
 from app.models.pulse import WeeklySnapshot, SegmentSnapshot, JobPosting, TalentPool, KeywordIndex, JdAnalysis
@@ -330,9 +330,18 @@ class DashboardService:
                 otw_pct = float(tp.otw_pct)
 
         # Query 4 (pulse 스키마): JD 분석 데이터 — pulse 스키마, 분리 유지
+        # load_only로 불필요한 대용량 컬럼(raw_text, parsed_data) 제외, limit으로 안전 상한선 적용
         jd_analyses = (
             self.db.query(JdAnalysis)
+            .options(load_only(
+                JdAnalysis.tech_stacks,
+                JdAnalysis.role_level,
+                JdAnalysis.salary_min,
+                JdAnalysis.salary_max,
+                JdAnalysis.domain_tags,
+            ))
             .filter(JdAnalysis.company_id == cid_uuid, JdAnalysis.parsed_at.isnot(None))
+            .limit(200)
             .all()
         )
 

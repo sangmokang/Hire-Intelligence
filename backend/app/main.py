@@ -36,6 +36,7 @@ from app.routers.opp_alert import router as opp_alert_router
 from app.routers.candidate_profiler import router as candidate_profiler_router
 from app.routers.tds_simulator import router as tds_simulator_router
 from app.routers.market_value import router as market_value_router
+from app.routers.expert_panel import router as expert_panel_router
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.usage_tracker import UsageTrackerMiddleware
 from app.schemas.common import ApiError
@@ -135,6 +136,7 @@ app.include_router(opp_alert_router, prefix=API_PREFIX)
 app.include_router(candidate_profiler_router, prefix=API_PREFIX)
 app.include_router(tds_simulator_router, prefix=API_PREFIX)
 app.include_router(market_value_router, prefix=API_PREFIX)
+app.include_router(expert_panel_router, prefix=API_PREFIX)
 
 
 @app.get("/health", tags=["health"])

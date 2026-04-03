@@ -1,11 +1,15 @@
+import { lazy, Suspense, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useExpertPanelStore } from '../../stores/expertPanelStore';
 import { hasPermission } from '../../types/auth';
 import { apiClient } from '../../services/apiClient';
 import { trackEvent } from '../../lib/analytics';
 import logo from '../../assets/logo.svg';
+
+const AskCommandModal = lazy(() => import('../common/AskCommandModal').then(m => ({ default: m.AskCommandModal })));
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 
@@ -300,6 +304,24 @@ export function DashboardLayout() {
   // STARTER 플랜 사용자 여부 (Pro 이상이 아닌 경우)
   const isStarterUser = !user?.plan || user.plan === 'STARTER' || user.plan === 'TALENT_FREE' || user.plan === 'TALENT_PLUS';
 
+  const { isOpen: isAskOpen, toggle: toggleAsk } = useExpertPanelStore();
+
+  // Cmd+K / Ctrl+K / "/" 키보드 이벤트 핸들러
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleAsk();
+      }
+      if (e.key === '/' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        toggleAsk();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleAsk]);
+
   async function handleLogout() {
     await logout();
     navigate('/login', { replace: true });
@@ -379,6 +401,18 @@ export function DashboardLayout() {
           {/* Title area — can be populated by child pages via a context/store later */}
           <div className="flex-1" />
 
+          {/* 전문가 패널 Cmd+K 버튼 */}
+          <button
+            onClick={toggleAsk}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <span>전문가에게 질문</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium">&#8984;K</kbd>
+          </button>
+
           {/* 데이터 갱신 기준 주차 표시 */}
           {metadata?.latestWeek && (
             <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 text-xs text-gray-500 font-medium">
@@ -427,6 +461,11 @@ export function DashboardLayout() {
         {/* Content */}
         <main className="flex-1 overflow-y-auto">
           <Outlet />
+          {isAskOpen && (
+            <Suspense fallback={null}>
+              <AskCommandModal />
+            </Suspense>
+          )}
         </main>
       </div>
     </div>

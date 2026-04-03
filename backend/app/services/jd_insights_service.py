@@ -1,10 +1,11 @@
 """JD 인사이트 서비스 — 기술 트렌드, 경력 분포, 연봉 벤치마크 집계"""
 import logging
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 from sqlalchemy import desc, select
 
 from app.models.pulse import JdAnalysis
 from app.constants.segments import get_segment_name
+from app.services.cache import cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,12 @@ class JdInsightsService:
     def get_insights(self, segment_id: str | None = None, weeks: int = 12) -> dict:
         """JD 인사이트 조회 — 기술 트렌드, 경력 분포, 연봉 벤치마크"""
 
+        # 캐시 확인
+        _cache_key = f"jd_insights:{segment_id or 'all'}:{weeks}"
+        _cached = cache_service.get(_cache_key)
+        if _cached is not None:
+            return _cached
+
         # 최근 N주 데이터 범위
         recent_weeks_subq = (
             self.db.query(JdAnalysis.week)
@@ -26,9 +33,17 @@ class JdInsightsService:
             .subquery()
         )
 
-        # 기본 쿼리 (파싱 완료된 레코드만)
+        # 기본 쿼리 (파싱 완료된 레코드만, 필요한 컬럼만 로드)
         base_q = (
             self.db.query(JdAnalysis)
+            .options(load_only(
+                JdAnalysis.tech_stacks,
+                JdAnalysis.role_level,
+                JdAnalysis.salary_min,
+                JdAnalysis.salary_max,
+                JdAnalysis.domain_tags,
+                JdAnalysis.segment_id,
+            ))
             .filter(
                 JdAnalysis.parsed_at.isnot(None),
                 JdAnalysis.week.in_(select(recent_weeks_subq.c.week)),
@@ -122,10 +137,12 @@ class JdInsightsService:
             reverse=True,
         )[:10]
 
-        return {
+        _result = {
             "tech_trends": tech_trends,
             "experience_distribution": experience_distribution,
             "salary_benchmarks": salary_benchmarks,
             "top_domain_tags": top_domain_tags,
             "total_analyzed": len(analyses),
         }
+        cache_service.set(_cache_key, _result, ttl=3600)
+        return _result

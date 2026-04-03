@@ -119,6 +119,17 @@ async def upgrade_plan(
 
     user_id = current_user["id"]
 
+    # 유료 플랜 전환 시 실제 결제 확인 — payment_key가 payments 테이블에 paid 상태로 존재해야 함
+    if plan in ("PRO", "ENTERPRISE"):
+        from app.models.payment import Payment
+        verified = db.query(Payment).filter(
+            Payment.payment_key == body.payment_key,
+            Payment.user_id == user_id,
+            Payment.status == "paid",
+        ).first()
+        if not verified:
+            raise HTTPException(status_code=400, detail="유효한 결제 정보가 아닙니다.")
+
     now = datetime.now(timezone.utc)
 
     # 기존 활성 구독 취소
