@@ -1,9 +1,18 @@
 """Action Panel 서비스 — rule-based insight/actions 생성 (Claude API ready 구조)"""
+import hashlib
+import json
+import logging
+
+import anthropic
+
+from app.config import settings
 from app.schemas.action_panel import (
     ActionPanelRequest,
     ActionPanelResponse,
     ActionItem,
 )
+
+logger = logging.getLogger(__name__)
 
 # SD Matrix view용 — 시장 상황별 × 사용자 카테고리별 인사이트
 SD_MATRIX_INSIGHTS: dict[str, dict[str, str]] = {
@@ -247,6 +256,14 @@ def _get_default_insight(view: str, user_category: str) -> str:
 class ActionPanelService:
     """Action Panel 생성 서비스 — rule-based (Claude API ready 구조)"""
 
+    def __init__(self) -> None:
+        if settings.ANTHROPIC_API_KEY:
+            self._client: anthropic.Anthropic | None = anthropic.Anthropic(
+                api_key=settings.ANTHROPIC_API_KEY
+            )
+        else:
+            self._client = None
+
     def generate(self, request: ActionPanelRequest) -> ActionPanelResponse:
         """view + context 기반 insight + actions 반환"""
         view = request.view
@@ -264,10 +281,11 @@ class ActionPanelService:
                 locked=True,
             )
 
-        # Claude API stub — ANTHROPIC_API_KEY 설정 시 여기서 호출
-        # result = self._generate_with_claude(view, user_category, current_data)
-        # if result:
-        #     return result
+        # Claude API 시도 (API 키 있을 때만)
+        if settings.ANTHROPIC_API_KEY:
+            result = self._generate_with_claude(view, user_category, current_data)
+            if result is not None:
+                return result
 
         return self._generate_rule_based(view, user_category, current_data)
 
@@ -311,18 +329,70 @@ class ActionPanelService:
             locked=False,
         )
 
-    async def _generate_with_claude(
+    def _generate_with_claude(
         self,
         view: str,
         user_category: str,
         current_data: dict | None,
     ) -> ActionPanelResponse | None:
-        """Claude API를 사용한 인사이트 생성 stub — ANTHROPIC_API_KEY 설정 후 활성화
+        """Claude API를 사용한 인사이트 생성 (sync 패턴)"""
+        if not self._client:
+            return None
 
-        구현 시 참고:
-        - model: claude-haiku-3-5 (속도/비용 최적)
-        - system prompt: view, user_category, current_data를 컨텍스트로 제공
-        - output: insight(str) + actions(list[ActionItem]) + relatedViews(list[str]) JSON
-        - fallback: 예외 발생 시 None 반환 → rule-based로 폴백
-        """
-        return None
+        # 캐시 키: view + user_category + current_data hash
+        data_hash = hashlib.md5(json.dumps(current_data or {}, sort_keys=True).encode()).hexdigest()[:8]
+        _ = data_hash  # 호출자에서 캐시 처리 예정 (P3)
+
+        prompt = f"""당신은 HR 채용 인텔리전스 전문가입니다.
+현재 사용자: {user_category}
+현재 뷰: {view}
+현재 데이터: {json.dumps(current_data or {}, ensure_ascii=False)}
+
+다음 JSON 형식으로만 응답하세요:
+{{
+  "insight": "사용자 맞춤 인사이트 (2-3문장)",
+  "actions": [
+    {{"priority": "HIGH", "text": "구체적 액션", "cta": null, "ctaUrl": null}},
+    {{"priority": "MEDIUM", "text": "구체적 액션", "cta": "버튼명", "ctaUrl": "/dashboard/xxx"}},
+    {{"priority": "LOW", "text": "구체적 액션", "cta": null, "ctaUrl": null}}
+  ],
+  "relatedViews": ["view-name-1", "view-name-2"]
+}}"""
+
+        try:
+            response = self._client.messages.create(
+                model=settings.ACTION_PANEL_MODEL,
+                max_tokens=512,
+                timeout=settings.ACTION_PANEL_TIMEOUT,
+                system="HR 채용 인텔리전스 전문가로서 JSON 형식으로만 응답하세요.",
+                messages=[{"role": "user", "content": prompt}],
+            )
+            content = response.content[0].text.strip()
+            # JSON 파싱
+            if content.startswith("```"):
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+            data = json.loads(content)
+            actions = [
+                ActionItem(
+                    priority=a.get("priority", "MEDIUM"),
+                    text=a.get("text", ""),
+                    cta=a.get("cta"),
+                    cta_url=a.get("ctaUrl"),
+                )
+                for a in data.get("actions", [])
+            ]
+            return ActionPanelResponse(
+                insight=data.get("insight", ""),
+                actions=actions,
+                related_views=data.get("relatedViews", []),
+                is_ai_generated=True,
+                locked=False,
+            )
+        except json.JSONDecodeError:
+            logger.warning("Claude API JSON 파싱 실패 — rule-based 폴백")
+            return None
+        except Exception as e:
+            logger.warning("Claude API 오류 (%s) — rule-based 폴백", type(e).__name__)
+            return None

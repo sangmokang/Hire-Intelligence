@@ -1,79 +1,137 @@
-"""인메모리 TTL 캐시 서비스 — cachetools 기반 싱글턴"""
+"""캐시 서비스 — REDIS_URL 설정 시 Redis, 미설정 시 인메모리 TTL 캐시 (싱글턴)"""
 import asyncio
 import functools
+import json
 import logging
 from typing import Any, Optional
 
 from cachetools import TTLCache
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
+
+# Redis 선택적 임포트
+try:
+    import redis as redis_lib
+    _REDIS_AVAILABLE = True
+except ImportError:
+    _REDIS_AVAILABLE = False
 
 
 class CacheService:
-    """인메모리 TTL 캐시 서비스.
+    """캐시 서비스.
 
-    - maxsize: 캐시 최대 항목 수 (LRU 방식으로 초과 시 오래된 항목 제거)
-    - default_ttl: 기본 TTL 초 단위 (기본값 30분)
-    - 히트/미스 카운터로 캐시 효율 모니터링 지원
+    - REDIS_URL 설정 시: Redis sync 클라이언트 (항목별 TTL 정확 지원)
+    - REDIS_URL 미설정 시: cachetools TTLCache (인메모리)
     """
 
     def __init__(self, maxsize: int = 1024, default_ttl: int = 1800):
-        self._cache: TTLCache = TTLCache(maxsize=maxsize, ttl=default_ttl)
         self._default_ttl = default_ttl
         self._hit_count = 0
         self._miss_count = 0
 
+        # Redis vs 인메모리 분기
+        if settings.REDIS_URL and _REDIS_AVAILABLE:
+            try:
+                self._redis: Optional[Any] = redis_lib.Redis.from_url(
+                    settings.REDIS_URL,
+                    decode_responses=True,
+                    socket_connect_timeout=3,
+                    socket_timeout=3,
+                )
+                self._redis.ping()  # 연결 검증
+                self._memory_cache = None
+                logger.info("캐시: Redis 연결 성공 (%s)", settings.REDIS_URL)
+            except Exception as e:
+                logger.warning("Redis 연결 실패 (%s) — 인메모리 폴백", e)
+                self._redis = None
+                self._memory_cache: Optional[TTLCache] = TTLCache(maxsize=maxsize, ttl=default_ttl)
+        else:
+            self._redis = None
+            self._memory_cache = TTLCache(maxsize=maxsize, ttl=default_ttl)
+
+    @property
+    def _using_redis(self) -> bool:
+        return self._redis is not None
+
     def get(self, key: str) -> Optional[Any]:
         """캐시에서 값 조회. 없거나 만료되면 None 반환."""
-        value = self._cache.get(key)
-        if value is None:
-            self._miss_count += 1
+        try:
+            if self._using_redis:
+                raw = self._redis.get(key)
+                if raw is None:
+                    self._miss_count += 1
+                    return None
+                self._hit_count += 1
+                return json.loads(raw)
+            else:
+                value = self._memory_cache.get(key)
+                if value is None:
+                    self._miss_count += 1
+                    return None
+                self._hit_count += 1
+                return value
+        except Exception as e:
+            logger.warning("캐시 get 실패 (key=%s): %s", key, e)
             return None
-        self._hit_count += 1
-        return value
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-        """캐시에 값 저장. ttl 지정 시 해당 TTL 사용, 없으면 기본 TTL.
-
-        주의: cachetools TTLCache는 항목별 TTL을 지원하지 않으므로
-        ttl이 기본값과 다를 경우 별도 TTLCache 인스턴스에 위임하지 않고
-        캐시에 직접 저장 (만료 시각은 캐시 생성 시 설정된 ttl 기준).
-        항목별 TTL이 필요한 경우 별도 set_with_ttl 확장 가능.
-        """
-        if ttl is not None and ttl != self._default_ttl:
-            # 항목별 TTL: 임시 TTLCache를 통해 만료 처리 (저장 후 바로 꺼내는 방식)
-            # 실용적 근사: 기본 캐시에 저장하되, TTL 차이는 허용 (단순화)
-            # 운영 환경에서는 Redis 전환 시 항목별 TTL 완벽 지원 가능
-            self._cache[key] = value
-        else:
-            self._cache[key] = value
+        """캐시에 값 저장."""
+        effective_ttl = ttl if ttl is not None else self._default_ttl
+        try:
+            if self._using_redis:
+                self._redis.setex(key, effective_ttl, json.dumps(value, default=str))
+            else:
+                self._memory_cache[key] = value
+        except Exception as e:
+            logger.warning("캐시 set 실패 (key=%s): %s", key, e)
 
     def invalidate(self, key: str) -> None:
         """단일 키 삭제."""
-        self._cache.pop(key, None)
+        try:
+            if self._using_redis:
+                self._redis.delete(key)
+            else:
+                self._memory_cache.pop(key, None)
+        except Exception as e:
+            logger.warning("캐시 invalidate 실패 (key=%s): %s", key, e)
 
     def invalidate_prefix(self, prefix: str) -> int:
         """프리픽스로 시작하는 모든 키 삭제. 삭제된 키 수 반환."""
-        # TTLCache는 dict-like이므로 키 목록 복사 후 삭제
-        keys_to_delete = [k for k in list(self._cache.keys()) if str(k).startswith(prefix)]
-        for k in keys_to_delete:
-            self._cache.pop(k, None)
-        if keys_to_delete:
-            logger.debug("캐시 무효화: prefix=%s, 삭제된 키 수=%d", prefix, len(keys_to_delete))
-        return len(keys_to_delete)
+        try:
+            if self._using_redis:
+                keys = self._redis.keys(f"{prefix}*")
+                if keys:
+                    self._redis.delete(*keys)
+                    logger.debug("캐시 무효화: prefix=%s, 삭제된 키 수=%d", prefix, len(keys))
+                return len(keys)
+            else:
+                keys_to_delete = [k for k in list(self._memory_cache.keys()) if str(k).startswith(prefix)]
+                for k in keys_to_delete:
+                    self._memory_cache.pop(k, None)
+                if keys_to_delete:
+                    logger.debug("캐시 무효화: prefix=%s, 삭제된 키 수=%d", prefix, len(keys_to_delete))
+                return len(keys_to_delete)
+        except Exception as e:
+            logger.warning("캐시 invalidate_prefix 실패 (prefix=%s): %s", prefix, e)
+            return 0
 
     def get_stats(self) -> dict:
         """캐시 통계 반환 — 관리자 모니터링용."""
         total = self._hit_count + self._miss_count
         hit_rate = round(self._hit_count / total, 4) if total > 0 else 0.0
-        return {
+        stats = {
             "hit_count": self._hit_count,
             "miss_count": self._miss_count,
             "hit_rate": hit_rate,
-            "size": len(self._cache),
-            "maxsize": self._cache.maxsize,
+            "backend": "redis" if self._using_redis else "memory",
             "default_ttl_seconds": self._default_ttl,
         }
+        if not self._using_redis and self._memory_cache is not None:
+            stats["size"] = len(self._memory_cache)
+            stats["maxsize"] = self._memory_cache.maxsize
+        return stats
 
 
 # 모듈 레벨 싱글턴 — 앱 전체에서 공유

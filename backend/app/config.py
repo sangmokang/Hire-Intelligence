@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     # 빌링키 암호화 (Fernet 대칭키, cryptography.fernet.Fernet.generate_key()로 생성)
     BILLING_KEY_ENCRYPTION_KEY: str = ""
 
+    # Action Panel AI 설정
+    ACTION_PANEL_MODEL: str = "claude-haiku-4-5-20251001"
+    ACTION_PANEL_TIMEOUT: int = 3
+    ACTION_PANEL_CACHE_TTL: int = 600
+
+    # Redis 캐시 (P3)
+    REDIS_URL: str = ""
+
     model_config = {
         "env_file": _resolve_env_file(),
         "case_sensitive": True,
