@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import type { User, LoginCredentials, RegisterData } from '../types/auth';
 import { apiClient } from '../services/apiClient';
 
+const AUTH_STORAGE_KEY = 'vxmi-auth-session';
+
+interface PersistedAuthState {
+  accessToken: string | null;
+  refreshToken: string | null;
+  user: User | null;
+}
+
 interface AuthState {
   user: User | null;
   accessToken: string | null;
@@ -20,11 +28,50 @@ interface AuthState {
   initializeAuth: () => Promise<void>;
 }
 
+function getStorage(rememberMe = false): Storage | null {
+  if (typeof window === 'undefined') return null;
+  return rememberMe ? window.localStorage : window.sessionStorage;
+}
+
+function readPersistedAuth(): PersistedAuthState | null {
+  if (typeof window === 'undefined') return null;
+
+  for (const storage of [window.localStorage, window.sessionStorage]) {
+    const raw = storage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) continue;
+
+    try {
+      return JSON.parse(raw) as PersistedAuthState;
+    } catch {
+      storage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }
+
+  return null;
+}
+
+function persistAuthState(state: PersistedAuthState, rememberMe = false): void {
+  if (typeof window === 'undefined') return;
+
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
+
+  const storage = getStorage(rememberMe);
+  storage?.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
+}
+
+function clearPersistedAuth(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
 // 로그인/회원가입 후 전체 프로필을 가져오는 헬퍼
-async function fetchProfile(): Promise<void> {
+async function fetchProfile(): Promise<User> {
   const { data } = await apiClient.get('/api/v1/auth/me');
-  const profile = data.data;
+  const profile = (data.data.user ?? data.data) as User;
   useAuthStore.getState().setUser(profile);
+  return profile;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -45,7 +92,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         refreshToken: data.data.refreshToken || null,
       });
       // /auth/me에서 전체 프로필 가져오기
-      await fetchProfile();
+      const user = await fetchProfile();
+      persistAuthState({
+        accessToken: data.data.accessToken,
+        refreshToken: data.data.refreshToken || null,
+        user,
+      }, credentials.rememberMe);
       set({ isAuthenticated: true });
     } catch (err: unknown) {
       // AxiosError 응답에서 서버 메시지를 우선 추출
@@ -67,7 +119,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         refreshToken: res.data.refreshToken || null,
       });
       // /auth/me에서 전체 프로필 가져오기
-      await fetchProfile();
+      const user = await fetchProfile();
+      persistAuthState({
+        accessToken: res.data.accessToken,
+        refreshToken: res.data.refreshToken || null,
+        user,
+      });
       set({ isAuthenticated: true });
     } catch (err: unknown) {
       const axiosData = (err as { response?: { data?: { detail?: string; error?: { message?: string } } } })?.response?.data;
@@ -91,18 +148,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setAccessToken: (token) => set({ accessToken: token }),
   setUser: (user) => set({ user, isAuthenticated: true }),
   clearAuth: () =>
-    set({
-      user: null,
-      accessToken: null,
-      refreshToken: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
-    }),
+    (() => {
+      clearPersistedAuth();
+      set({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      });
+    })(),
 
   initializeAuth: async () => {
     try {
-      const refreshToken = get().refreshToken;
+      const persisted = readPersistedAuth();
+      const accessToken = get().accessToken || persisted?.accessToken || null;
+      const refreshToken = get().refreshToken || persisted?.refreshToken || null;
+      const persistedUser = get().user || persisted?.user || null;
+
+      if (accessToken || refreshToken || persistedUser) {
+        set({
+          accessToken,
+          refreshToken,
+          user: persistedUser,
+          isAuthenticated: Boolean(accessToken && persistedUser),
+        });
+      }
+
       if (!refreshToken) {
         set({ isLoading: false });
         return;
@@ -113,7 +186,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         accessToken: data.data.accessToken,
         refreshToken: data.data.refreshToken || get().refreshToken,
       });
-      await fetchProfile();
+      const user = await fetchProfile();
+      persistAuthState({
+        accessToken: data.data.accessToken,
+        refreshToken: data.data.refreshToken || get().refreshToken,
+        user,
+      }, Boolean(window.localStorage.getItem(AUTH_STORAGE_KEY)));
       set({ isAuthenticated: true, isLoading: false });
     } catch {
       get().clearAuth();

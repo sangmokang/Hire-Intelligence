@@ -64,7 +64,7 @@ export function TopCompaniesView() {
   if (isLoading) {
     return (
       <div>
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[0,1,2,3].map((i) => <CardSkeleton key={i} />)}
         </div>
         <ChartSkeleton height={400} />
@@ -90,7 +90,7 @@ export function TopCompaniesView() {
     <ActionPanelLayout panel={panelProps}>
     <ErrorBoundary>
       <div>
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <MetricCard label="총 채용 기업" value={totalCompanies.toLocaleString()} sub="이번 주 집계" />
           <MetricCard label="Top 20 점유율" value={`${top20Share}%`} sub="전체 공고 기준" />
           <MetricCard

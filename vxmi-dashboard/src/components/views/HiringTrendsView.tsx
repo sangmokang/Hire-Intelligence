@@ -130,7 +130,7 @@ export function HiringTrendsView() {
   if (isLoading) {
     return (
       <div>
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[0,1,2,3].map((i) => <CardSkeleton key={i} />)}
         </div>
         <ChartSkeleton height={320} />
@@ -156,7 +156,7 @@ export function HiringTrendsView() {
     <ActionPanelLayout panel={panelProps}>
     <ErrorBoundary>
       <div>
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <MetricCard label="조회 기간" value={`${trendWeeks.length}주`} sub={trendWeeks.length > 0 ? `${trendWeeks[0]} — ${trendWeeks[trendWeeks.length - 1]}` : ''} />
           <MetricCard
             label="최고 성장 직군"

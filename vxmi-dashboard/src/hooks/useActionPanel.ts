@@ -17,7 +17,7 @@ interface ActionPanelApiResponse {
     cta?: string
     ctaUrl?: string
   }>
-  relatedViews: string[]
+  relatedViews: Array<string | { label: string; path: string }>
   isAiGenerated: boolean
   locked?: boolean
 }
@@ -74,13 +74,22 @@ export function useActionPanel(view: string, context?: ActionPanelContext): Acti
   })
 
   const isLocked = data?.locked ?? false
+  const normalizedRelatedViews = data
+    ? data.relatedViews.map((relatedView) => {
+      if (typeof relatedView === 'string') {
+        return {
+          label: VIEW_LABELS[relatedView] ?? relatedView,
+          path: `/dashboard/${relatedView}`,
+        }
+      }
+      return relatedView
+    })
+    : (FALLBACK_RELATED_VIEWS[view] ?? [])
 
   return {
     insight: data?.insight ?? (isLoading ? '분석 중...' : '인사이트를 불러올 수 없습니다.'),
     actions: data?.actions ?? [],
-    relatedViews: data
-      ? data.relatedViews.map(v => ({ label: VIEW_LABELS[v] ?? v, path: `/dashboard/${v}` }))
-      : (FALLBACK_RELATED_VIEWS[view] ?? []),
+    relatedViews: normalizedRelatedViews,
     isLocked,
   }
 }

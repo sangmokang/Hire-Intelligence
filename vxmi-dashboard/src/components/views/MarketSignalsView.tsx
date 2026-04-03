@@ -285,7 +285,7 @@ export function MarketSignalsView() {
   return (
     <div className="p-6">
       {/* 요약 메트릭 카드 */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <MetricCard
           label="공급 희소 (RED)"
           value={redCount}

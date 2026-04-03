@@ -23,7 +23,7 @@ export default function LoginPage() {
 
   async function onSubmit(values: LoginFormData) {
     try {
-      await login({ email: values.email, password: values.password });
+      await login({ email: values.email, password: values.password, rememberMe: values.rememberMe });
       trackEvent('Auth', 'login_success', 'email');
       navigate('/dashboard');
     } catch (err: unknown) {

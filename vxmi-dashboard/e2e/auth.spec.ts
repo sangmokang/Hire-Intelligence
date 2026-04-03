@@ -45,4 +45,33 @@ test.describe('Authentication Flow', () => {
     await expect(page.getByPlaceholder('비밀번호 (8자 이상, 대문자·숫자 포함)')).toBeVisible();
     await expect(page.getByPlaceholder('비밀번호 확인')).toBeVisible();
   });
+
+  test('E2E-A03: should complete register flow and enter dashboard', async ({ page }) => {
+    const email = `qa-${Date.now()}@example.com`;
+
+    await page.goto('/register');
+    await page.getByPlaceholder('이름').fill('QA User');
+    await page.getByPlaceholder('이메일 주소').fill(email);
+    await page.getByPlaceholder('비밀번호 (8자 이상, 대문자·숫자 포함)').fill('Password1');
+    await page.getByPlaceholder('비밀번호 확인').fill('Password1');
+    await page.getByRole('button', { name: '회원가입' }).click();
+
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByText('Unexpected Application Error!')).not.toBeVisible();
+  });
+
+  test('E2E-A04: should keep auth state after dashboard reload', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByPlaceholder('이메일 주소').fill('admin@valueconnect.kr');
+    await page.getByPlaceholder('비밀번호').fill('admin1234');
+    await page.getByRole('button', { name: '이메일로 로그인' }).click();
+
+    await expect(page).toHaveURL(/\/dashboard/);
+    await page.goto('/dashboard/top-companies');
+    await page.reload();
+
+    await expect(page).toHaveURL(/\/dashboard\/top-companies/);
+    await expect(page.getByText('로그인')).not.toBeVisible();
+    await expect(page.getByText('Unexpected Application Error!')).not.toBeVisible();
+  });
 });

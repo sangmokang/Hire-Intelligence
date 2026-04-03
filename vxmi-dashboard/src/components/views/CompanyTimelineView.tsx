@@ -115,7 +115,7 @@ export function CompanyTimelineView() {
   if (isLoading) {
     return (
       <div>
-        <div className="grid grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {[0,1,2,3].map((i) => <CardSkeleton key={i} />)}
         </div>
         <ChartSkeleton height={260} />
@@ -143,7 +143,7 @@ export function CompanyTimelineView() {
     <ErrorBoundary>
       <div>
         {/* Summary Metrics */}
-        <div className="grid grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           <MetricCard label="조회 기업 수" value={rankData.length.toLocaleString()} sub={`Top ${topN} 기준`} />
           <MetricCard
             label="최다 채용 기업"

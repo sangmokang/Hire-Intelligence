@@ -139,7 +139,7 @@ export function SDMatrixView() {
   if (isLoading) {
     return (
       <div>
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[0,1,2,3].map((i) => <CardSkeleton key={i} />)}
         </div>
         <ChartSkeleton height={420} />
@@ -165,7 +165,7 @@ export function SDMatrixView() {
     <ActionPanelLayout panel={panelProps}>
     <ErrorBoundary>
       <div>
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <MetricCard
             label="전체 채용 공고"
             value={activeData.reduce((a, s) => a + s.demand, 0).toLocaleString()}

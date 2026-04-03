@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 
 export default function LandingPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -22,13 +24,13 @@ export default function LandingPage() {
               <span className="text-white font-bold text-lg tracking-tight">ValueHire</span>
             </div>
 
-            {/* Nav links */}
+            {/* Nav links — desktop */}
             <div className="hidden md:flex items-center gap-8">
               <a href="#features" className="text-white/70 hover:text-white text-sm transition-colors">기능</a>
               <a href="#pricing" className="text-white/70 hover:text-white text-sm transition-colors">요금제</a>
             </div>
 
-            {/* CTA buttons */}
+            {/* CTA buttons + 햄버거 */}
             <div className="flex items-center gap-3">
               <Link
                 to="/login"
@@ -42,8 +44,44 @@ export default function LandingPage() {
               >
                 무료 시작
               </Link>
+              {/* 햄버거 버튼 — mobile only */}
+              <button
+                className="md:hidden p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                onClick={() => setMobileMenuOpen((v) => !v)}
+                aria-label="메뉴 열기"
+              >
+                {mobileMenuOpen ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
+
+          {/* 모바일 드롭다운 메뉴 */}
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-white/10 py-3 flex flex-col gap-1">
+              <a
+                href="#features"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-white/70 hover:text-white text-sm px-2 py-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                기능
+              </a>
+              <a
+                href="#pricing"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-white/70 hover:text-white text-sm px-2 py-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                요금제
+              </a>
+            </div>
+          )}
         </div>
       </nav>
 

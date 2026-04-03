@@ -8,6 +8,7 @@ export interface ActionPanelProps {
   actions: ActionItem[];                                // 1-3개 행동 권고
   relatedViews?: { label: string; path: string }[];    // 관련 뷰 링크
   isLocked?: boolean;                                   // Starter 플랜 잠금 여부
+  isAiGenerated?: boolean;                              // Claude API 생성 여부
 }
 
 // ── Priority 색상 매핑 ──────────────────────────────────────────────────────
@@ -107,7 +108,7 @@ function LockOverlay() {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function ActionPanel({ insight, actions, relatedViews, isLocked = false }: ActionPanelProps) {
+export function ActionPanel({ insight, actions, relatedViews, isLocked = false, isAiGenerated = false }: ActionPanelProps) {
   return (
     // 데스크탑: sticky 우측 패널 / 모바일: block (부모 레이아웃이 세로 스택 처리)
     <div className="relative bg-white border-l border-gray-200 shadow-sm flex flex-col gap-0 overflow-hidden">
@@ -121,6 +122,11 @@ export function ActionPanel({ insight, actions, relatedViews, isLocked = false }
           <h3 className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
             <span>💡</span>
             <span>인사이트</span>
+            {isAiGenerated && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                AI
+              </span>
+            )}
           </h3>
           <p className="text-sm text-gray-700 leading-relaxed">{insight}</p>
         </section>

@@ -197,6 +197,7 @@ interface NavItem {
   to: string;
   icon: React.ReactNode;
   proOnly?: boolean;
+  categoryOnly?: string;
 }
 
 const ANALYSIS_NAV: NavItem[] = [
@@ -210,6 +211,8 @@ const ANALYSIS_NAV: NavItem[] = [
   { label: 'JD 인사이트', to: '/dashboard/jd-insights', icon: <IconDocument />, proOnly: true },
   { label: '회사 DNA', to: '/dashboard/company-dna', icon: <IconBuilding />, proOnly: true },
   { label: '기업 비교', to: '/dashboard/company-compare', icon: <IconBuilding />, proOnly: true },
+  { label: '내 시장가치', to: '/dashboard/market-value', icon: <IconChart />, categoryOnly: 'JOB_SEEKER' },
+  { label: 'TDS 시뮬레이터', to: '/dashboard/tds-simulator', icon: <IconChart />, categoryOnly: 'CHRO' },
 ];
 
 const MY_NAV: NavItem[] = [
@@ -228,7 +231,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: '데이터 조회', to: '/admin/data', icon: <IconDatabase /> },
 ];
 
-function NavSection({ title, items, isStarterUser }: { title: string; items: NavItem[]; isStarterUser?: boolean }) {
+function NavSection({ title, items, isStarterUser, userCategory }: { title: string; items: NavItem[]; isStarterUser?: boolean; userCategory?: string }) {
   return (
     <div className="mb-6">
       <p className="px-3 mb-1 text-[10px] font-semibold tracking-widest uppercase text-gray-500">
@@ -236,6 +239,7 @@ function NavSection({ title, items, isStarterUser }: { title: string; items: Nav
       </p>
       <ul className="space-y-0.5">
         {items.map((item) => {
+          if (item.categoryOnly && item.categoryOnly !== userCategory) return null;
           const locked = isStarterUser && item.proOnly;
           return (
             <li key={item.to}>
@@ -327,7 +331,7 @@ export function DashboardLayout() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-4">
-          <NavSection title="분석" items={ANALYSIS_NAV} isStarterUser={isStarterUser} />
+          <NavSection title="분석" items={ANALYSIS_NAV} isStarterUser={isStarterUser} userCategory={user?.category} />
           {isUser && <NavSection title="내 계정" items={MY_NAV} />}
           {isAdmin && <NavSection title="관리자" items={ADMIN_NAV} />}
         </nav>
